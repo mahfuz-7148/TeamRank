@@ -37,7 +37,10 @@ export default function ExamCard({ exam, index = 0, onDelete }: ExamCardProps) {
             <p className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-slate-400">
               <span>📅 {date}</span>
               <span className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-emerald-50 to-teal-50 px-2 py-0.5 font-semibold text-emerald-700 ring-1 ring-emerald-200/70">
-                ✅ {exam.passedCount} জন
+                ✅ {exam.passedCount} পাস
+              </span>
+              <span className="inline-flex items-center gap-1 rounded-full bg-slate-50 px-2 py-0.5 font-semibold text-slate-600 ring-1 ring-slate-200">
+                👥 {exam.uniqueUsers} জন
               </span>
             </p>
           </div>

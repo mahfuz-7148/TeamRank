@@ -107,11 +107,14 @@ export default function ExamDetailPage() {
         <div className="flex items-start justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold text-slate-900">{exam.title}</h1>
-            <p className="mt-1.5 flex items-center gap-3 text-xs text-slate-400">
+            <p className="mt-1.5 flex flex-wrap items-center gap-3 text-xs text-slate-400">
               <span>📅 {date}</span>
               <span className="h-1 w-1 rounded-full bg-slate-300" />
               <span className="font-semibold text-emerald-600">
                 ✅ {exam.passedCount}টি পাস
+              </span>
+              <span className="font-semibold text-indigo-600">
+                👥 {exam.uniqueUsers} জন
               </span>
             </p>
           </div>

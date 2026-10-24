@@ -21,6 +21,7 @@ interface ExamSummaryDto {
   content: string;
   createdAt: Date;
   passedCount: number;
+  uniqueUsers: number;
 }
 
 interface ExamDetailDto extends ExamSummaryDto {
@@ -34,6 +35,7 @@ function toSummaryDto(post: IPost): ExamSummaryDto {
     content: post.content,
     createdAt: post.createdAt,
     passedCount: post.checkedBy.length,
+    uniqueUsers: new Set(post.checkedBy.map((id) => id.toString())).size,
   };
 }
 
@@ -102,6 +104,9 @@ export async function getPost(
       content: post.content,
       createdAt: post.createdAt,
       passedCount: post.checkedBy.length,
+      uniqueUsers: new Set(
+        post.checkedBy.map((u) => u._id.toString())
+      ).size,
       checkedBy: (post as unknown as PostWithPopulated).checkedBy.reduce<
         { id: string; username: string; passes: number }[]
       >((acc, u) => {

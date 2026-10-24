@@ -10,6 +10,7 @@ export interface ExamSummary {
   content: string;
   createdAt: string;
   passedCount: number;
+  uniqueUsers: number;
 }
 
 export interface ExamDetail extends ExamSummary {
