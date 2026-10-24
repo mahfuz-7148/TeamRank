@@ -26,7 +26,7 @@ interface ApiEnvelope<T> {
 }
 
 interface RequestOptions {
-  method?: "GET" | "POST";
+  method?: "GET" | "POST" | "DELETE";
   body?: unknown;
   adminKey?: string;
 }
@@ -84,6 +84,16 @@ export function createUser(username: string): Promise<User> {
 
 export function listUsers(): Promise<User[]> {
   return request<User[]>("/api/users");
+}
+
+export function deleteUser(
+  adminKey: string,
+  userId: string
+): Promise<{ id: string; username: string }> {
+  return request<{ id: string; username: string }>(`/api/users/${userId}`, {
+    method: "DELETE",
+    adminKey,
+  });
 }
 
 // ---- Posts (exams) ----

@@ -1,7 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { ApiError, getExam, listExams, listUsers, toggleAward } from "@/lib/api";
+import ConfirmDialog from "@/components/ConfirmDialog";
+import {
+  ApiError,
+  deleteUser,
+  getExam,
+  listExams,
+  listUsers,
+  toggleAward,
+} from "@/lib/api";
 import type { ExamSummary, User } from "@/types";
 
 export default function AwardPage() {
@@ -17,6 +25,11 @@ export default function AwardPage() {
   const [loading, setLoading] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Delete flow
+  const [userToDelete, setUserToDelete] = useState<User | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -89,6 +102,35 @@ export default function AwardPage() {
     }
   }
 
+  async function handleDeleteConfirmed() {
+    if (!userToDelete) return;
+    setDeleting(true);
+    setError(null);
+    setNotice(null);
+    try {
+      await deleteUser(adminKey.trim(), userToDelete.id);
+      setUsers((prev) => prev.filter((u) => u.id !== userToDelete.id));
+      setAwardedIds((prev) => {
+        const next = new Map(prev);
+        next.delete(userToDelete.id);
+        return next;
+      });
+      setNotice(`🗑️ "${userToDelete.username}" কে ডিলিট করা হয়েছে`);
+      setUserToDelete(null);
+      // Refresh exam list so pass counts stay accurate
+      const examList = await listExams();
+      setExams(examList);
+      if (selectedExamId) {
+        await loadExamDetail(selectedExamId);
+      }
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "ইউজার ডিলিট করা যায়নি");
+      setUserToDelete(null);
+    } finally {
+      setDeleting(false);
+    }
+  }
+
   // ---- Step 1: admin key ----
   if (!keyVerified) {
     return (
@@ -145,12 +187,20 @@ export default function AwardPage() {
             setUsers([]);
             setAwardedIds(new Map());
             setSelectedExamId("");
+            setNotice(null);
+            setError(null);
           }}
           className="rounded-lg border border-slate-200 bg-white/80 px-3 py-1.5 text-xs text-slate-500 transition-all duration-200 hover:border-red-200 hover:bg-red-50 hover:text-red-600 active:scale-95"
         >
           কী বদলান
         </button>
       </div>
+
+      {notice && (
+        <div className="animate-scale-in rounded-2xl bg-emerald-50 p-4 text-sm text-emerald-700 ring-1 ring-emerald-100">
+          {notice}
+        </div>
+      )}
 
       {error && (
         <div className="animate-scale-in rounded-2xl bg-red-50 p-4 text-sm text-red-600 ring-1 ring-red-100">
@@ -261,6 +311,30 @@ export default function AwardPage() {
                           "+ Pass করান"
                         )}
                       </button>
+                      <button
+                        onClick={() => setUserToDelete(user)}
+                        disabled={busy || deleting}
+                        aria-label={`${user.username} কে ডিলিট করুন`}
+                        title="ইউজার ডিলিট করুন"
+                        className="shrink-0 rounded-lg border border-slate-200 bg-white p-2 text-slate-400 transition-all duration-200 hover:border-red-200 hover:bg-red-50 hover:text-red-600 active:scale-90 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth={1.8}
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          className="h-4 w-4"
+                          aria-hidden="true"
+                        >
+                          <path d="M3 6h18" />
+                          <path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2" />
+                          <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                          <path d="M10 11v6M14 11v6" />
+                        </svg>
+                      </button>
                     </li>
                   );
                 })}
@@ -269,6 +343,25 @@ export default function AwardPage() {
           </section>
         </>
       )}
+
+      {/* Delete confirmation modal — admin permission only */}
+      <ConfirmDialog
+        open={userToDelete !== null}
+        title="ইউজার ডিলিট করবেন?"
+        description={
+          userToDelete
+            ? `"${userToDelete.username}" কে স্থায়ীভাবে ডিলিট করা হবে। এই ইউজারের সব পরীক্ষার পয়েন্টও মুছে যাবে। এটি ফিরিয়ে আনা যাবে না।`
+            : ""
+        }
+        confirmLabel="হ্যাঁ, ডিলিট করুন"
+        cancelLabel="না, থাক"
+        destructive
+        loading={deleting}
+        onConfirm={() => void handleDeleteConfirmed()}
+        onCancel={() => {
+          if (!deleting) setUserToDelete(null);
+        }}
+      />
     </div>
   );
 }

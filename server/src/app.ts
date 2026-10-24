@@ -13,7 +13,7 @@ export function createApp(): Express {
   app.use(
     cors({
       origin: clientUrl ? [clientUrl] : [],
-      methods: ["GET", "POST"],
+      methods: ["GET", "POST", "DELETE"],
       allowedHeaders: ["Content-Type", "x-admin-key"],
     })
   );
