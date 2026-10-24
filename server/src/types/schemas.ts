@@ -1,0 +1,35 @@
+import { z } from "zod";
+
+export const createUserSchema = z.object({
+  username: z
+    .string({ required_error: "ইউজারনেম দরকার" })
+    .trim()
+    .min(1, "ইউজারনেম খালি রাখা যাবে না")
+    .max(30, "ইউজারনেম সর্বোচ্চ ৩০ অক্ষরের হতে পারে"),
+});
+
+export type CreateUserInput = z.infer<typeof createUserSchema>;
+
+export const createPostSchema = z.object({
+  title: z
+    .string({ required_error: "পরীক্ষার শিরোনাম দরকার" })
+    .trim()
+    .min(1, "শিরোনাম খালি রাখা যাবে না")
+    .max(120, "শিরোনাম সর্বোচ্চ ১২০ অক্ষরের হতে পারে"),
+  content: z
+    .string()
+    .trim()
+    .max(5000, "বর্ণনা সর্বোচ্চ ৫০০০ অক্ষরের হতে পারে")
+    .optional()
+    .default(""),
+});
+
+export type CreatePostInput = z.infer<typeof createPostSchema>;
+
+export const awardSchema = z.object({
+  userId: z
+    .string({ required_error: "userId দরকার" })
+    .regex(/^[a-fA-F0-9]{24}$/, "userId একটি সঠিক ObjectId হতে হবে"),
+});
+
+export type AwardInput = z.infer<typeof awardSchema>;
