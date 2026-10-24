@@ -130,4 +130,5 @@ cd client && npm install && npm run dev     # http://localhost:3000
 | `401 Invalid admin key` | Vercel env-এর `ADMIN_KEY` আর UI-তে দেওয়া কী এক কি না দেখুন |
 | Client পুরনো API URL-এ যাচ্ছে | `NEXT_PUBLIC_API_URL` বদলে **Redeploy** করুন (build-time variable) |
 | Serverless timeout | Atlas cluster pause হয়ে আছে কি না দেখুন; `server/vercel.json`-এ `maxDuration` ৩০ সেকেন্ড |
+| Build-এ `Failed to fetch Hind Siliguri from Google Fonts` | সাময়িক নেটওয়ার্ক সমস্যা — Vercel-এ **Redeploy** দিন; বারবার হলে `client/src/app/layout.tsx` থেকে `next/font/google` সরিয়ে সিস্টেম ফন্ট ব্যবহার করুন |
 | `404` on API routes | `server/vercel.json` কমিট হয়েছে কি না নিশ্চিত করুন, Root Directory = `server` |
