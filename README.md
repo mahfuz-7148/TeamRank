@@ -23,6 +23,8 @@ A full-stack **team exam, points and leaderboard system**. Admins create exams (
 ```
 TeamRank/
 ├── server/
+│   ├── api/index.ts              # Vercel serverless entry point
+│   ├── vercel.json               # routes all traffic → api/index.ts
 │   └── src/
 │       ├── config/db.ts              # MongoDB connection
 │       ├── models/
@@ -113,6 +115,22 @@ cd server && npm run build && npm start
 # client
 cd client && npm run build && npm start
 ```
+
+### ☁️ Deploy to Vercel
+
+Full step-by-step guide (two projects, env vars, CORS, Atlas allowlist):
+**[DEPLOY.md](./DEPLOY.md)**
+
+Quick summary:
+
+1. Push the repo to GitHub.
+2. Create a Vercel project with **Root Directory = `server`**, add env vars
+   `MONGO_URI`, `ADMIN_KEY`, `CLIENT_URL`, then deploy.
+3. Create a second project with **Root Directory = `client`**, add
+   `NEXT_PUBLIC_API_URL=https://<your-api>.vercel.app`, then deploy.
+4. Put the deployed client URL into the backend's `CLIENT_URL` and redeploy the
+   backend.
+5. Verify `https://<your-api>.vercel.app/api/health`.
 
 ## API
 

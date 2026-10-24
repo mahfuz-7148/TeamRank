@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, type ReactNode } from "react";
 
 interface ConfirmDialogProps {
   open: boolean;
@@ -10,6 +10,8 @@ interface ConfirmDialogProps {
   cancelLabel?: string;
   destructive?: boolean;
   loading?: boolean;
+  confirmDisabled?: boolean;
+  children?: ReactNode;
   onConfirm: () => void;
   onCancel: () => void;
 }
@@ -22,6 +24,8 @@ export default function ConfirmDialog({
   cancelLabel = "বাতিল",
   destructive = false,
   loading = false,
+  confirmDisabled = false,
+  children,
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
@@ -82,6 +86,8 @@ export default function ConfirmDialog({
           {description}
         </p>
 
+        {children && <div className="mt-4">{children}</div>}
+
         <div className="mt-6 flex gap-2.5">
           <button
             type="button"
@@ -94,7 +100,7 @@ export default function ConfirmDialog({
           <button
             type="button"
             onClick={onConfirm}
-            disabled={loading}
+            disabled={loading || confirmDisabled}
             className={`flex-1 rounded-xl py-2.5 text-sm font-semibold text-white shadow-lg transition-all duration-200 active:scale-95 disabled:cursor-not-allowed disabled:opacity-70 ${
               destructive
                 ? "bg-gradient-to-r from-red-500 to-rose-600 shadow-red-200 hover:shadow-xl hover:shadow-red-300"

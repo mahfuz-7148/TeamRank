@@ -125,6 +125,27 @@ export async function getPost(
   }
 }
 
+// DELETE /api/posts/:id — delete an exam (admin only)
+export async function deletePost(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const post = await Post.findByIdAndDelete(req.params.id);
+    if (!post) {
+      throw new HttpError(StatusCodes.NOT_FOUND, "পরীক্ষাটি খুঁজে পাওয়া যায়নি");
+    }
+
+    res.status(StatusCodes.OK).json({
+      success: true,
+      data: { id: post._id.toString(), title: post.title },
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
 // POST /api/posts/:id/award — add one pass for the user ($push, duplicates allowed)
 // Each click = +1 pass. Points are computed from the array size, never stored.
 export async function awardPoint(

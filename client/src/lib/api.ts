@@ -118,6 +118,16 @@ export function createExam(
   });
 }
 
+export function deleteExam(
+  adminKey: string,
+  examId: string
+): Promise<{ id: string; title: string }> {
+  return request<{ id: string; title: string }>(`/api/posts/${examId}`, {
+    method: "DELETE",
+    adminKey,
+  });
+}
+
 export function toggleAward(
   adminKey: string,
   examId: string,

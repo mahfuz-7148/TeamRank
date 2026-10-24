@@ -8,11 +8,21 @@ import { errorHandler, notFoundHandler } from "./middleware/errorHandler";
 export function createApp(): Express {
   const app = express();
 
-  // CORS: only allow the configured client origin
-  const clientUrl = process.env.CLIENT_URL;
+  // CORS: only the configured client origin(s). CLIENT_URL accepts a
+  // comma-separated list, e.g. "https://app.vercel.app,http://localhost:3000".
+  const allowedOrigins = (process.env.CLIENT_URL ?? "")
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+
   app.use(
     cors({
-      origin: clientUrl ? [clientUrl] : [],
+      origin(origin, callback) {
+        // Allow same-origin / server-to-server requests (no Origin header)
+        if (!origin) return callback(null, true);
+        if (allowedOrigins.includes(origin)) return callback(null, true);
+        return callback(null, false);
+      },
       methods: ["GET", "POST", "DELETE"],
       allowedHeaders: ["Content-Type", "x-admin-key"],
     })

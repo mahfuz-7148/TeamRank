@@ -3,11 +3,11 @@
   "version": "1.0.0",
   "private": true,
   "description": "TeamRank API — team exam, points and leaderboard system",
-  "main": "dist/server.js",
+  "main": "dist/src/server.js",
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
-    "start": "node dist/server.js",
+    "start": "node dist/src/server.js",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -24,5 +24,8 @@
     "@types/node": "^20.14.0",
     "tsx": "^4.16.0",
     "typescript": "^5.5.3"
+  },
+  "engines": {
+    "node": ">=18"
   }
 }
