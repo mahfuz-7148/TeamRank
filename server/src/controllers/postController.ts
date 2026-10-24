@@ -11,6 +11,10 @@ interface PopulatedUser {
   username: string;
 }
 
+type PostWithPopulated = Omit<IPost, "checkedBy"> & {
+  checkedBy: PopulatedUser[];
+};
+
 interface ExamSummaryDto {
   id: string;
   title: string;
@@ -20,7 +24,7 @@ interface ExamSummaryDto {
 }
 
 interface ExamDetailDto extends ExamSummaryDto {
-  checkedBy: { id: string; username: string }[];
+  checkedBy: { id: string; username: string; passes: number }[];
 }
 
 function toSummaryDto(post: IPost): ExamSummaryDto {
@@ -98,10 +102,18 @@ export async function getPost(
       content: post.content,
       createdAt: post.createdAt,
       passedCount: post.checkedBy.length,
-      checkedBy: post.checkedBy.map((u) => ({
-        id: u._id.toString(),
-        username: u.username,
-      })),
+      checkedBy: (post as unknown as PostWithPopulated).checkedBy.reduce<
+        { id: string; username: string; passes: number }[]
+      >((acc, u) => {
+        const key = u._id.toString();
+        const existing = acc.find((x) => x.id === key);
+        if (existing) {
+          existing.passes += 1;
+        } else {
+          acc.push({ id: key, username: u.username, passes: 1 });
+        }
+        return acc;
+      }, []),
     };
 
     res.status(StatusCodes.OK).json({
@@ -113,7 +125,8 @@ export async function getPost(
   }
 }
 
-// POST /api/posts/:id/award — toggle a user in checkedBy using $addToSet / $pull
+// POST /api/posts/:id/award — add one pass for the user ($push, duplicates allowed)
+// Each click = +1 pass. Points are computed from the array size, never stored.
 export async function awardPoint(
   req: Request,
   res: Response,
@@ -127,35 +140,26 @@ export async function awardPoint(
       throw new HttpError(StatusCodes.NOT_FOUND, "ইউজার খুঁজে পাওয়া যায়নি");
     }
 
-    const post = await Post.findById(req.params.id);
-    if (!post) {
-      throw new HttpError(StatusCodes.NOT_FOUND, "পরীক্ষাটি খুঁজে পাওয়া যায়নি");
-    }
-
-    const alreadyPassed = post.checkedBy.some(
-      (id) => id.toString() === body.userId
-    );
-
     const updated = await Post.findByIdAndUpdate(
       req.params.id,
-      alreadyPassed
-        ? { $pull: { checkedBy: user._id } }
-        : { $addToSet: { checkedBy: user._id } },
+      { $push: { checkedBy: user._id } },
       { new: true }
     );
 
     if (!updated) {
-      throw new HttpError(
-        StatusCodes.INTERNAL_SERVER_ERROR,
-        "পয়েন্ট আপডেট করা যায়নি"
-      );
+      throw new HttpError(StatusCodes.NOT_FOUND, "পরীক্ষাটি খুঁজে পাওয়া যায়নি");
     }
+
+    const userPasses = updated.checkedBy.filter(
+      (id) => id.toString() === body.userId
+    ).length;
 
     res.status(StatusCodes.OK).json({
       success: true,
       data: {
         id: updated._id.toString(),
-        passed: !alreadyPassed,
+        passed: true,
+        userPasses,
         passedCount: updated.checkedBy.length,
       },
     });

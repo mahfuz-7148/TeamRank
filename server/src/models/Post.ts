@@ -7,7 +7,6 @@ export interface IPost {
   checkedBy: Types.Array<Types.ObjectId>;
   createdAt: Date;
 }
-
 const postSchema = new Schema<IPost>(
   {
     title: {
@@ -27,6 +26,10 @@ const postSchema = new Schema<IPost>(
         default: [],
       },
     ],
+    createdAt: {
+      type: Date,
+      default: Date.now,
+    },
   },
   {
     timestamps: false,

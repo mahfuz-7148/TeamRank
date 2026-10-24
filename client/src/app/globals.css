@@ -3,5 +3,36 @@
 @tailwind utilities;
 
 body {
-  @apply bg-slate-50 text-slate-800 antialiased;
+  @apply text-slate-800 antialiased;
+}
+
+/* Shimmer skeleton loading */
+.skeleton {
+  @apply rounded-lg bg-slate-200;
+  background-image: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0,
+    rgba(255, 255, 255, 0.6) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  background-size: 500px 100%;
+  background-repeat: no-repeat;
+  animation: shimmer 1.6s linear infinite;
+}
+
+/* Staggered entrance delays */
+.stagger-1 { animation-delay: 60ms; }
+.stagger-2 { animation-delay: 120ms; }
+.stagger-3 { animation-delay: 180ms; }
+.stagger-4 { animation-delay: 240ms; }
+.stagger-5 { animation-delay: 300ms; }
+
+/* Count pop on badge increment */
+@keyframes count-pop {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.35); }
+  100% { transform: scale(1); }
+}
+.count-pop {
+  animation: count-pop 0.4s ease-out;
 }

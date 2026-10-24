@@ -16,6 +16,7 @@ export interface ExamDetail extends ExamSummary {
   checkedBy: {
     id: string;
     username: string;
+    passes: number;
   }[];
 }
 

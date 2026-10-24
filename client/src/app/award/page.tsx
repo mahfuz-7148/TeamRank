@@ -12,13 +12,12 @@ export default function AwardPage() {
   const [selectedExamId, setSelectedExamId] = useState("");
 
   const [users, setUsers] = useState<User[]>([]);
-  const [awardedIds, setAwardedIds] = useState<Set<string>>(new Set());
+  const [awardedIds, setAwardedIds] = useState<Map<string, number>>(new Map());
 
   const [loading, setLoading] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Load exams + users once the admin key is verified
   const loadData = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -37,15 +36,14 @@ export default function AwardPage() {
     }
   }, []);
 
-  // Load passed users of the selected exam
   const loadExamDetail = useCallback(async (examId: string) => {
     if (!examId) {
-      setAwardedIds(new Set());
+      setAwardedIds(new Map());
       return;
     }
     try {
       const detail = await getExam(examId);
-      setAwardedIds(new Set(detail.checkedBy.map((u) => u.id)));
+      setAwardedIds(new Map(detail.checkedBy.map((u) => [u.id, u.passes])));
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "পরীক্ষা লোড করা যায়নি");
     }
@@ -76,18 +74,16 @@ export default function AwardPage() {
     setTogglingId(userId);
     setError(null);
     try {
-      const result = await toggleAward(adminKey.trim(), selectedExamId, userId);
+      await toggleAward(adminKey.trim(), selectedExamId, userId);
       setAwardedIds((prev) => {
-        const next = new Set(prev);
-        if (result.passed) {
-          next.add(userId);
-        } else {
-          next.delete(userId);
-        }
+        const next = new Map(prev);
+        next.set(userId, (next.get(userId) ?? 0) + 1);
         return next;
       });
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "পয়েন্ট পরিবর্তন করা যায়নি");
+      setError(
+        err instanceof ApiError ? err.message : "পয়েন্ট পরিবর্তন করা যায়নি"
+      );
     } finally {
       setTogglingId(null);
     }
@@ -98,10 +94,13 @@ export default function AwardPage() {
     return (
       <form
         onSubmit={handleVerify}
-        className="mx-auto flex max-w-sm flex-col gap-4 rounded-xl bg-white border border-slate-200 p-5 shadow-sm"
+        className="mx-auto flex max-w-sm animate-fade-in-up flex-col gap-5 rounded-2xl border border-slate-200/80 bg-white/80 p-7 shadow-lg shadow-indigo-100/50 backdrop-blur"
       >
-        <div>
-          <h1 className="text-xl font-bold">পয়েন্ট প্রদান</h1>
+        <div className="text-center">
+          <span className="mb-3 inline-flex h-16 w-16 animate-pulse-glow items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 text-3xl shadow-lg shadow-indigo-200">
+            🔐
+          </span>
+          <h1 className="text-xl font-bold text-slate-900">পয়েন্ট প্রদান</h1>
           <p className="mt-1 text-sm text-slate-500">
             অ্যাডমিন কী দিয়ে প্রবেশ করুন। কী কোথাও সংরক্ষণ করা হয় না।
           </p>
@@ -112,18 +111,18 @@ export default function AwardPage() {
           onChange={(e) => setAdminKey(e.target.value)}
           placeholder="অ্যাডমিন কী"
           autoComplete="off"
-          className="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+          className="w-full rounded-xl border border-slate-300 bg-white/90 px-4 py-3 text-sm outline-none transition-all duration-200 placeholder:text-slate-400 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100"
         />
         {error && (
-          <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">
-            {error}
+          <p className="animate-scale-in rounded-xl bg-red-50 px-4 py-2.5 text-sm text-red-600 ring-1 ring-red-100">
+            ⚠️ {error}
           </p>
         )}
         <button
           type="submit"
-          className="rounded-lg bg-indigo-600 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700 transition-colors"
+          className="w-full rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-200 transition-all duration-200 hover:shadow-xl hover:shadow-indigo-300 active:scale-[0.98]"
         >
-          প্রবেশ করুন
+          প্রবেশ করুন →
         </button>
       </form>
     );
@@ -131,29 +130,34 @@ export default function AwardPage() {
 
   // ---- Step 2: exam + users ----
   return (
-    <div className="flex flex-col gap-5">
+    <div className="animate-fade-in flex flex-col gap-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold">পয়েন্ট প্রদান</h1>
+        <div>
+          <h1 className="text-xl font-bold text-slate-900">🎯 পয়েন্ট প্রদান</h1>
+          <p className="mt-0.5 text-xs text-slate-400">
+            প্রতিটি ক্লিকে ইউজারের পাস কাউন্ট ১ করে বাড়বে
+          </p>
+        </div>
         <button
           onClick={() => {
             setKeyVerified(false);
             setExams([]);
             setUsers([]);
-            setAwardedIds(new Set());
+            setAwardedIds(new Map());
             setSelectedExamId("");
           }}
-          className="rounded-md border border-slate-300 px-2.5 py-1 text-xs text-slate-500 hover:bg-slate-100 transition-colors"
+          className="rounded-lg border border-slate-200 bg-white/80 px-3 py-1.5 text-xs text-slate-500 transition-all duration-200 hover:border-red-200 hover:bg-red-50 hover:text-red-600 active:scale-95"
         >
           কী বদলান
         </button>
       </div>
 
       {error && (
-        <div className="rounded-xl bg-red-50 p-4 text-sm text-red-600">
-          {error}
+        <div className="animate-scale-in rounded-2xl bg-red-50 p-4 text-sm text-red-600 ring-1 ring-red-100">
+          ⚠️ {error}
           <button
             onClick={() => void loadData()}
-            className="ml-3 underline hover:no-underline"
+            className="ml-3 font-medium underline hover:no-underline"
           >
             আবার চেষ্টা করুন
           </button>
@@ -161,13 +165,27 @@ export default function AwardPage() {
       )}
 
       {loading && (
-        <p className="py-6 text-center text-sm text-slate-400">লোড হচ্ছে...</p>
+        <div className="flex flex-col gap-3">
+          <div className="skeleton h-12 w-full rounded-xl" />
+          {[1, 2, 3, 4].map((n) => (
+            <div
+              key={n}
+              className="flex items-center gap-3 rounded-xl border border-slate-200/80 bg-white/80 px-4 py-3"
+            >
+              <div className="skeleton h-5 w-24" />
+              <div className="skeleton ml-auto h-8 w-20 rounded-lg" />
+            </div>
+          ))}
+        </div>
       )}
 
       {!loading && exams.length === 0 && (
-        <p className="rounded-xl bg-white border border-slate-200 p-6 text-center text-sm text-slate-500">
-          কোনো পরীক্ষা নেই — আগে অ্যাডমিন পেজ থেকে তৈরি করুন।
-        </p>
+        <div className="animate-scale-in rounded-2xl border border-dashed border-slate-300 bg-white/60 p-10 text-center">
+          <span className="mb-2 block text-3xl">📭</span>
+          <p className="text-sm text-slate-500">
+            কোনো পরীক্ষা নেই — আগে অ্যাডমিন পেজ থেকে তৈরি করুন।
+          </p>
+        </div>
       )}
 
       {!loading && exams.length > 0 && (
@@ -175,7 +193,7 @@ export default function AwardPage() {
           <div>
             <label
               htmlFor="examSelect"
-              className="mb-1 block text-sm font-medium text-slate-700"
+              className="mb-1.5 block text-sm font-medium text-slate-700"
             >
               পরীক্ষা নির্বাচন করুন
             </label>
@@ -183,52 +201,65 @@ export default function AwardPage() {
               id="examSelect"
               value={selectedExamId}
               onChange={(e) => setSelectedExamId(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+              className="w-full cursor-pointer rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm outline-none transition-all duration-200 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100"
             >
               {exams.map((exam) => (
                 <option key={exam.id} value={exam.id}>
-                  {exam.title} ({exam.passedCount} জন পাস)
+                  {exam.title} ({exam.passedCount}টি পাস)
                 </option>
               ))}
             </select>
           </div>
 
           <section>
-            <h2 className="mb-3 text-sm font-semibold text-slate-700">
-              ইউজার তালিকা
+            <h2 className="mb-3 text-sm font-bold text-slate-700">
+              👥 ইউজার তালিকা
             </h2>
 
             {users.length === 0 ? (
-              <p className="rounded-xl bg-white border border-slate-200 p-6 text-center text-sm text-slate-500">
-                এখনো কোনো ইউজার নেই।
-              </p>
+              <div className="animate-scale-in rounded-2xl border border-dashed border-slate-300 bg-white/60 p-8 text-center">
+                <span className="mb-2 block text-3xl">🤷</span>
+                <p className="text-sm text-slate-500">এখনো কোনো ইউজার নেই।</p>
+              </div>
             ) : (
-              <ul className="flex flex-col gap-2">
-                {users.map((user) => {
-                  const passed = awardedIds.has(user.id);
+              <ul className="flex flex-col gap-2.5">
+                {users.map((user, index) => {
+                  const passes = awardedIds.get(user.id) ?? 0;
                   const busy = togglingId === user.id;
                   return (
                     <li
                       key={user.id}
-                      className="flex items-center gap-3 rounded-xl bg-white border border-slate-200 px-4 py-3"
+                      className={`group flex animate-fade-in-up stagger-${Math.min(
+                        index + 1,
+                        5
+                      )} items-center gap-3 rounded-xl border border-slate-200/80 bg-white/80 px-4 py-3.5 shadow-sm backdrop-blur transition-all duration-200 hover:border-indigo-200 hover:shadow-md`}
                     >
-                      <span className="font-medium text-sm text-slate-800 truncate">
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 text-sm font-bold text-white shadow-sm shadow-indigo-200">
+                        {user.username.charAt(0).toUpperCase()}
+                      </span>
+                      <span className="truncate text-sm font-semibold text-slate-800">
                         {user.username}
                       </span>
+                      {passes > 0 && (
+                        <span
+                          key={passes}
+                          className="count-pop shrink-0 rounded-full bg-gradient-to-r from-emerald-50 to-teal-50 px-2.5 py-1 text-xs font-bold text-emerald-700 ring-1 ring-emerald-200"
+                        >
+                          {passes}
+                        </span>
+                      )}
                       <button
                         onClick={() => void handleToggle(user.id)}
                         disabled={busy}
-                        className={`ml-auto rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-colors disabled:opacity-60 ${
-                          passed
-                            ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
-                            : "bg-indigo-600 text-white hover:bg-indigo-700"
-                        }`}
+                        className="ml-auto shrink-0 rounded-lg bg-gradient-to-r from-indigo-600 to-violet-600 px-4 py-2 text-xs font-semibold text-white shadow-sm shadow-indigo-200 transition-all duration-200 hover:shadow-md hover:shadow-indigo-300 active:scale-90 disabled:cursor-not-allowed disabled:opacity-60"
                       >
-                        {busy
-                          ? "..."
-                          : passed
-                            ? "✅ Passed"
-                            : "Pass করান"}
+                        {busy ? (
+                          <span className="flex items-center gap-1.5">
+                            <span className="h-3 w-3 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                          </span>
+                        ) : (
+                          "+ Pass করান"
+                        )}
                       </button>
                     </li>
                   );

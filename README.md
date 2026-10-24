@@ -2,7 +2,13 @@
 
 A full-stack **team exam, points and leaderboard system**. Admins create exams ("Posts"), team members join with a username, and only the admin can mark who passed. Passing an exam gives **1 point**. A live leaderboard ranks every user.
 
-> **Design note:** total points are **never stored** as a number. They are computed live from how many exams contain the user in their `checkedBy` array (MongoDB `$lookup` + `$size`), so the leaderboard is always consistent.
+> **Design note:** total points are **never stored** as a number. They are computed live from the `checkedBy` array across all posts (unwind + group), so every recorded pass counts.
+
+## 🔄 Point rules (current)
+
+- The **Pass** button always **adds 1** to a user's count — clicking again adds another (no toggle-off).
+- Exam detail page shows each user's pass count (e.g. "✅ ৩ বার").
+- Leaderboard points = total number of passes recorded for the user across all exams.
 
 ## Tech stack
 
@@ -117,8 +123,8 @@ cd client && npm run build && npm start
 | POST   | `/api/posts`          | admin only  | Create an exam                                 |
 | GET    | `/api/posts`          | —           | All exams, newest first                        |
 | GET    | `/api/posts/:id`      | —           | One exam, `checkedBy` populated (username only)|
-| POST   | `/api/posts/:id/award`| admin only  | Toggle user in `checkedBy` (`$addToSet`/`$pull`)|
-| GET    | `/api/leaderboard`    | —           | Aggregated points (`$lookup` + `$size`), ranked|
+| POST   | `/api/posts/:id/award`| admin only  | Add one pass (`$push`; repeated calls add up)   |
+| GET    | `/api/leaderboard`    | —           | Passes counted per user (unwind + group), ranked |
 
 Admin routes require the header `x-admin-key: <ADMIN_KEY>`. Invalid ObjectIds return `400`; validation errors (zod) return `400` with per-field messages; duplicate usernames are deduplicated (the existing user is returned).
 
@@ -128,8 +134,8 @@ Admin routes require the header `x-admin-key: <ADMIN_KEY>`. Invalid ObjectIds re
 2. **Exams** — the home page lists all exams (newest first) with a pass count, plus the live leaderboard.
 3. **Exam detail** — clicking an exam shows its description and everyone who passed it. The list auto-refreshes every 5 seconds.
 4. **Admin creates exams** — on `/admin`, the admin enters their key (kept **only** in component state, never persisted), a title and optional content.
-5. **Admin awards points** — on `/award`, the admin picks an exam and toggles **Pass / Passed** per user. The server uses `$addToSet` / `$pull`, so a user can never be counted twice.
-6. **Leaderboard** — points are computed on the fly via a `$lookup` from `users` to `posts.checkedBy` with `$size`, sorted by points (desc) then username (asc).
+5. **Admin awards points** — on `/award`, the admin picks an exam and clicks **Pass** per user. Every click records one more pass (`$push`), so a student who answered 3 questions correctly can be given 3 points. Each user's running count appears as a badge.
+6. **Leaderboard** — points are computed live by unwinding `checkedBy` across posts, grouping per user and counting entries, then sorted by points (desc) and username (asc). Nothing is stored as a total.
 
 ## Security notes
 
