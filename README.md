@@ -121,6 +121,11 @@ cd server && pnpm build && pnpm start
 cd client && pnpm build && pnpm start
 ```
 
+### 🧪 Load testing
+
+Concurrency capacity মাপার রেডি স্ক্রিপ্ট: **[loadtest/README.md](./loadtest/README.md)**
+(কোনো install লাগে না — `node loadtest/run.mjs`)।
+
 ### ☁️ Deploy to Vercel
 
 Full step-by-step guide (two projects, env vars, CORS, Atlas allowlist):
