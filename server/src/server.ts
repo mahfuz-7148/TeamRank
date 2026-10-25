@@ -12,10 +12,8 @@ async function main(): Promise<void> {
   const port = Number(process.env.PORT) || 5000;
   const app = createApp();
 
-  // Socket.IO needs a long-running HTTP server. This entry point
-  // (src/server.ts) is for local dev and persistent hosts like
-  // Render / Railway / Fly / a VPS. Vercel's serverless entry
-  // (api/index.ts) does not attach Socket.IO — see DEPLOY.md.
+  // Socket.IO needs a long-running HTTP server. This is the production
+  // entry point used by Render (and local dev / Railway / Fly / a VPS).
   const httpServer = createServer(app);
   const io = new SocketServer(httpServer, {
     cors: {

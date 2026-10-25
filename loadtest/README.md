@@ -17,7 +17,7 @@ node loadtest/run.mjs
 
 ```bash
 # ডিপ্লয় করা API
-BASE_URL=https://server-three-jade-96.vercel.app \
+BASE_URL=https://<your-api>.onrender.com \
 EXAM_ID=6add051a2ec99067db70a9ba \
 CONCURRENCY=50 DURATION=30 \
 node loadtest/run.mjs
@@ -56,7 +56,7 @@ curl -s -X DELETE "$BASE_URL/api/users/$UID" -H "x-admin-key: $ADMIN_KEY"
 প্রতি worker একটানা hammer না করে ১ সেকেন্ড থামবে — বাস্তব ইউজারের মতো:
 
 ```bash
-BASE_URL=https://server-three-jade-96.vercel.app \
+BASE_URL=https://<your-api>.onrender.com \
 EXAM_ID=<exam-id> \
 CONCURRENCY=100 DURATION=60 THINK_MS=1000 \
 node loadtest/run.mjs
@@ -79,7 +79,7 @@ node loadtest/run.mjs
 এরপরও ভালো পারফরম্যান্স থাকলে পরের ধাপে যান। যেখানে error বাড়ে বা p95 লাফিয়ে
 বাড়ে — সেটাই আপনার বর্তমান ক্যাপাসিটি।
 
-> 🌍 দূরের রিজিওন থেকে টেস্ট করলে p50-ই ৬০০ms+ হতে পারে (Bangladesh → US Vercel
+> 🌍 দূরের রিজিওন থেকে টেস্ট করলে p50-ই ৬০০ms+ হতে পারে (Bangladesh → Render region
 > → Atlas)। এটা কোডের সমস্যা নয়, নেটওয়ার্ক RTT। তাই remote টেস্টে p95-এর
 > সাথে p50-ও দেখুন — p50 স্থির থাকলে মানে অ্যাপ স্কেল করছে।
 
@@ -97,29 +97,31 @@ node loadtest/run.mjs
 ## কোথায় bottleneck হবে
 
 1. **MongoDB Atlas** (সবচেয়ে বড়) — free/shared tier-এ CPU, connections (M0 ≈ ৫০০), slow queries
-2. **Vercel serverless** — cold start, concurrency limit, ১০–৬০s duration
+2. **Render free tier** — ১৫ মিনিট নিষ্ক্রিয় থাকলে sleep, cold start ~৩০–৬০s
 3. **DB connection** — প্রতিটা warm function instance একটা connection রাখে
 4. **Write contention** — একই `Post` ডকুমেন্টে অনেক `$addToSet`/`$push` একসাথে
 
 ## চাপ দেওয়ার সময় কী মনিটর করবেন
 
-- **Vercel** → Project → Observability/Logs: invocations, error rate, duration, 5xx
+- **Render** → Logs / Metrics: CPU, memory, response time, restarts
+- **Socket.IO** → Render logs-এ `[socket] connected` লাইন
 - **Atlas** → Metrics: Connections, CPU, Opcounters (query/insert/update), Disk IOPS
 - **স্ক্রিপ্টের** p95/p99 আর status code (429/500 এলে থামুন)
 
-## 📈 এই ডিপ্লয়ে মাপা ফলাফল (read-only, Oct 2026)
+## 📈 পুরোনো Vercel ডিপ্লয়ে মাপা ফল (তুলনার জন্য)
 
 | কোথায় | Worker | Think | req/s | p50 | p95 | Success |
 | --- | --- | --- | --- | --- | --- | --- |
-| Vercel (deployed) | 10 | 0 | 15.4 | 636ms | 1281ms | 100% |
-| Vercel (deployed) | 30 | 0 | 30.6 | 673ms | 2609ms | 100% |
-| Vercel (deployed) | 50 | 1s | 26.5 | 642ms | 1650ms | 100% |
+| Vercel (পুরোনো) | 10 | 0 | 15.4 | 636ms | 1281ms | 100% |
+| Vercel (পুরোনো) | 30 | 0 | 30.6 | 673ms | 2609ms | 100% |
+| Vercel (পুরোনো) | 50 | 1s | 26.5 | 642ms | 1650ms | 100% |
 | লোকাল API | 30 | 0 | 50.9 | 659ms | 862ms | 100% |
 
 **ব্যাখ্যা:**
 
 - p50 প্রায় একই (~650ms) → মূল delay **Bangladesh ↔ Atlas RTT**, কোড নয়
-- লোকাল সার্ভার ৫১ req/s, Vercel ৩০ req/s → Vercel-এ concurrency overhead আছে
+- লোকাল সার্ভার ৫১ req/s, Vercel ৩০ req/s — serverless-এ concurrency overhead ছিল
+- এখন API Render-এ, তাই নতুন করে মাপলে সংখ্যা বদলাবে
 - কোনো 5xx/429 নেই — কিন্তু ৩০ worker-এ p95 ২.৬s, তাই হঠাৎ burst-এ ধীর লাগবে
 
 **বাস্তব ক্যাপাসিটি (৫s polling ধরে):**
@@ -128,8 +130,8 @@ node loadtest/run.mjs
 - ১০০ জন একসাথে পেজ খোলা = ২০ req/s → পরীক্ষিত ২৬–৩০ req/s-এর মধ্যে ✅
 - ২০০ জন = ৪০ req/s → p95 আরও বাড়বে, তখন polling ১০–১৫s করা বা DB/region আপগ্রেড দরকার
 
-**আরও স্কেল করতে:** polling interval বাড়ানো, Vercel region + Atlas region
-একই জায়গায় রাখা (যেমন `sin1`/`bom1` + Atlas Mumbai), leaderboard-এ ছোট cache,
+**আরও স্কেল করতে:** polling interval বাড়ানো, Render region + Atlas region
+একই জায়গায় রাখা (Render Singapore + Atlas Mumbai/Singapore), leaderboard-এ ছোট cache,
 আর Atlas free tier থেকে paid tier-এ যাওয়া।
 
 ## রিয়েল-লাইফ চেক

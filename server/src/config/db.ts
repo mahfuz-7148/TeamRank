@@ -1,11 +1,11 @@
 import mongoose from "mongoose";
 
 /**
- * Serverless-safe MongoDB connection.
+ * Cached MongoDB connection.
  *
- * On Vercel each invocation may run in a warm container, so we cache the
- * connection (and the in-flight promise) on `globalThis` to avoid opening a
- * new pool on every request. Concurrent cold-start requests share one promise.
+ * The connection (and the in-flight promise) is cached on `globalThis` so
+ * restarts/hot reloads and concurrent first requests share one pool instead
+ * of opening a new connection each time.
  */
 interface MongooseCache {
   conn: typeof mongoose | null;

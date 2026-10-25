@@ -25,9 +25,8 @@ A full-stack **team exam, points and leaderboard system**. Admins create exams (
 
 ```
 TeamRank/
+├── render.yaml                   # Render blueprint for the API
 ├── server/
-│   ├── api/index.ts              # Vercel serverless entry point
-│   ├── vercel.json               # routes all traffic → api/index.ts
 │   └── src/
 │       ├── config/db.ts              # MongoDB connection
 │       ├── models/
@@ -115,10 +114,9 @@ NEXT_PUBLIC_API_URL=http://localhost:5000
 # NEXT_PUBLIC_SOCKET_URL=http://localhost:5000
 ```
 
-> Socket.IO runs from `server/src/server.ts`. For real-time notifications in
-> production the API must run on a persistent host (Render/Railway/Fly/VPS).
-> On Vercel's serverless API the app still works, but falls back to 5s polling.
-> See [DEPLOY.md](./DEPLOY.md#৪-রিয়েল-টাইম-নোটিফিকেশন-socketio).
+> Socket.IO runs from `server/src/server.ts`, so the API is hosted on **Render**
+> (a persistent Node server). The Next.js frontend stays on Vercel.
+> See [DEPLOY.md](./DEPLOY.md).
 
 ### Production build
 
@@ -135,21 +133,24 @@ cd client && pnpm build && pnpm start
 Concurrency capacity মাপার রেডি স্ক্রিপ্ট: **[loadtest/README.md](./loadtest/README.md)**
 (কোনো install লাগে না — `node loadtest/run.mjs`)।
 
-### ☁️ Deploy to Vercel
+### ☁️ Deploy (Render API + Vercel frontend)
 
-Full step-by-step guide (two projects, env vars, CORS, Atlas allowlist):
+Full step-by-step guide (blueprint, env vars, CORS, Atlas allowlist):
 **[DEPLOY.md](./DEPLOY.md)**
 
 Quick summary:
 
 1. Push the repo to GitHub.
-2. Create a Vercel project with **Root Directory = `server`**, add env vars
-   `MONGO_URI`, `ADMIN_KEY`, `CLIENT_URL`, then deploy.
-3. Create a second project with **Root Directory = `client`**, add
-   `NEXT_PUBLIC_API_URL=https://<your-api>.vercel.app`, then deploy.
-4. Put the deployed client URL into the backend's `CLIENT_URL` and redeploy the
-   backend.
-5. Verify `https://<your-api>.vercel.app/api/health`.
+2. Render → **New → Blueprint** (uses `render.yaml`) or a Web Service with
+   **Root Directory = `server`**, then set `MONGO_URI`, `ADMIN_KEY`, `CLIENT_URL`.
+   Build: `corepack enable && pnpm install --frozen-lockfile --prod=false && pnpm build`
+   · Start: `pnpm start` · Health check: `/api/health`.
+3. Vercel → frontend project with **Root Directory = `client`**, set
+   `NEXT_PUBLIC_API_URL=https://<your-api>.onrender.com`, then deploy.
+4. Put the Vercel client URL into Render's `CLIENT_URL` and redeploy the API.
+5. Verify `https://<your-api>.onrender.com/api/health` → `200`.
+
+> Render-এ API চলার কারণে Socket.IO রিয়েল-টাইম নোটিফিকেশন কাজ করে।
 
 ## API
 

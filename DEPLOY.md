@@ -1,13 +1,17 @@
-# 🚀 Vercel-এ TeamRank ডিপ্লয়
+# 🚀 TeamRank ডিপ্লয় (Render API + Vercel frontend)
 
-এই রেপোতে দুটি আলাদা অ্যাপ আছে, তাই **দুটি আলাদা Vercel project** বানাতে হবে:
+এই রেপোতে দুটি আলাদা অ্যাপ আছে:
 
-| Project | Root Directory | ধরন |
-| --- | --- | --- |
-| `teamrank-api` | `server` | Express (Serverless Function) |
-| `teamrank-web` | `client` | Next.js |
+| App | কোথায় | Root Directory | ধরন |
+| --- | --- | --- | --- |
+| API | **Render** | `server` | Express + Socket.IO (long-running) |
+| Web | **Vercel** | `client` | Next.js |
 
-> ⚠️ **আগে Mongo Atlas ঠিক করুন:** Vercel-এর IP ডাইনামিক, তাই Atlas → **Network Access**-এ `0.0.0.0/0` (Allow access from anywhere) যোগ করুন। অথবা Atlas-এর dedicated IP/PrivateLink ব্যবহার করুন।
+> ✅ API এখন Render-এ চলবে, তাই **Socket.IO রিয়েল-টাইম নোটিফিকেশন** কাজ করবে।
+> ⚠️ পুরোনো Vercel backend project (`server-three-jade-96`) আর ব্যবহার হবে না — মাইগ্রেশনের পরে ডিলিট করে দিন।
+
+> ⚠️ **Mongo Atlas:** Render-এর IP ডাইনামিক, তাই Atlas → **Network Access**-এ `0.0.0.0/0`
+> (Allow access from anywhere) যোগ করুন। অথবা dedicated IP/PrivateLink ব্যবহার করুন।
 
 ---
 
@@ -16,145 +20,147 @@
 ```bash
 cd /path/to/TeamRank
 git add .
-git commit -m "prepare for Vercel deployment"
-git remote add origin https://github.com/<you>/teamrank.git
-git push -u origin main
+git commit -m "deploy API on Render"
+git push origin main
 ```
 
-`.env` / `.env.local` কখনো কমিট হয় না (`.gitignore`-এ আছে)। Vercel-এ Environment Variables দিয়ে সেট করবেন।
+`.env` / `.env.local` কখনো কমিট হয় না (`.gitignore`-এ আছে)। Environment variables
+Render ও Vercel-এর dashboard-এ সেট করবেন।
 
 ---
 
-## ২. Backend ডিপ্লয় (`server/`)
+## ২. Render-এ API ডিপ্লয়
 
-### Dashboard দিয়ে
+### উপায় A — Blueprint (`render.yaml` আগেই আছে)
 
-1. Vercel → **Add New → Project** → রেপো ইমপোর্ট করুন
-2. **Root Directory** → `server` সিলেক্ট করুন
-3. **Framework Preset** → `Other`
-4. **Build Command** / **Output Directory** → খালি রাখুন (ডিফল্ট)
-5. **Environment Variables** যোগ করুন:
+1. [dashboard.render.com](https://dashboard.render.com) → **New → Blueprint**
+2. GitHub repo সিলেক্ট করুন → Render `render.yaml` পড়ে সার্ভিস তৈরি করবে
+3. `MONGO_URI`, `ADMIN_KEY`, `CLIENT_URL` — তিনটার মান দিন
+4. **Apply / Deploy** চাপুন
+
+### উপায় B — ম্যানুয়াল Web Service
+
+1. Render → **New → Web Service** → repo সিলেক্ট
+2. **Root Directory** → `server`
+3. **Runtime** → `Node`
+4. **Region** → `Singapore` (বাংলাদেশের জন্য সবচেয়ে কাছাকাছি)
+5. **Build Command**:
+   ```bash
+   corepack enable && pnpm install --frozen-lockfile --prod=false && pnpm build
+   ```
+6. **Start Command**:
+   ```bash
+   pnpm start
+   ```
+7. **Health Check Path** → `/api/health`
+8. **Environment Variables**:
 
 | Name | Value | নোট |
 | --- | --- | --- |
 | `MONGO_URI` | `mongodb+srv://user:pass@cluster.mongodb.net/teamrank` | Atlas connection string |
-| `ADMIN_KEY` | একটি শক্তিশালী গোপন কী | admin routes-এর জন্য |
-| `CLIENT_URL` | `https://teamrank-web.vercel.app` | client-এর production URL (কমা দিয়ে একাধিক দেওয়া যায়) |
-| `PORT` | `5000` | Vercel-এ ব্যবহার হয় না, লোকালের জন্য |
+| `ADMIN_KEY` | শক্তিশালী গোপন কী | admin routes-এর জন্য |
+| `CLIENT_URL` | `https://team-rank-pearl.vercel.app` | frontend origin (কমা দিয়ে একাধিক) |
+| `NODE_VERSION` | `22` | Blueprint-এ সেট করা আছে |
 
-6. **Deploy** চাপুন
-7. ডিপ্লয় শেষে টেস্ট করুন:
-   ```
-   https://<your-api>.vercel.app/api/health
-   → {"success":true,"data":{"status":"ok"}}
-   ```
+> `PORT` Render নিজেই দেয় — ম্যানুয়ালি দিতে হবে না।
 
-### CLI দিয়ে (ঐচ্ছিক)
+### ডিপ্লয় verification
 
-```bash
-cd server
-pnpm add -g vercel
-vercel            # প্রথমবার project link করবে
-vercel --prod
+```
+https://<your-api>.onrender.com/api/health
+→ {"success":true,"data":{"status":"ok"}}
 ```
 
-CLI-তে environment variables যোগ করুন: `vercel env add MONGO_URI production` ইত্যাদি।
+**কীভাবে কাজ করে:** `server/src/server.ts` HTTP সার্ভার বানিয়ে তাতে Express ও
+Socket.IO attach করে, তারপর Render-এর দেওয়া `PORT`-এ listen করে। `pnpm build`
+TypeScript কম্পাইল করে `dist/src/server.js` তৈরি করে, `pnpm start` সেটাই চালায়।
 
-**কীভাবে কাজ করে:** `server/vercel.json` সব রিকোয়েস্ট `api/index.ts`-এ পাঠায়; `createApp()` Express app হ্যান্ডেল করে। `src/config/db.ts`-এ global connection cache আছে, তাই warm container-এ বারবার DB connect হয় না।
-
-> **pnpm:** `server/` ও `client/` দুটোতেই `pnpm-lock.yaml` আছে, তাই Vercel স্বয়ংক্রিয়ভাবে **pnpm** দিয়ে install করবে। `package-lock.json` কখনো কমিট করবেন না।
+> **Free tier:** Render free service ১৫ মিনিট নিষ্ক্রিয় থাকলে ঘুমিয়ে পড়ে; প্রথম
+> রিকোয়েস্টে ~৩০–৬০ সেকেন্ড লাগতে পারে। Socket.IO ক্লায়েন্ট নিজেই reconnect করে।
 
 ---
 
-## ৩. Frontend ডিপ্লয় (`client/`)
+## ৩. Frontend (Vercel) নতুন API-তে পয়েন্ট করুন
 
-1. Vercel → **Add New → Project** → একই রেপো
-2. **Root Directory** → `client`
-3. **Framework Preset** → `Next.js` (অটো ডিটেক্ট হবে)
-4. **Environment Variables**:
+1. Vercel → **frontend** প্রজেক্ট (`team-rank-pearl`) → **Settings → Environment Variables**
+2. `NEXT_PUBLIC_API_URL` = `https://<your-api>.onrender.com`
+3. (ঐচ্ছিক) `NEXT_PUBLIC_SOCKET_URL` — শুধু socket আলাদা হোস্টে হলে
+4. **Deployments → Redeploy** (⚠️ `NEXT_PUBLIC_*` build-time-এ embed হয়)
 
-| Name | Value |
-| --- | --- |
-| `NEXT_PUBLIC_API_URL` | `https://<your-api>.vercel.app` |
-
-> `NEXT_PUBLIC_*` ভ্যালু **build time**-এ embed হয়। ভ্যালু বদলালে অবশ্যই **Redeploy** করতে হবে।
+frontend URL: `https://team-rank-pearl.vercel.app`
 
 ### 📊 ভিজিট কতবার হয়েছে দেখবেন কোথায়
 
 Vercel **Web Analytics** দিয়ে page view / unique visitor দেখা যায় (Hobby: মাসে ৫০,০০০ event ফ্রি)।
 
 1. কোডে `@vercel/analytics` আগেই যোগ করা আছে (`client/src/app/layout.tsx`-এ `<Analytics />`)
-2. Vercel Dashboard → আপনার **frontend** প্রজেক্ট (`team-rank-pearl`) → বাম সাইডবার **Analytics** → **Enable**
-3. নতুন কোড **Deploy** করুন (enable করার পর routes তৈরি হয়)
-4. কিছু ভিজিটের পর **Analytics** ট্যাবে দেখবেন: **Visitors**, **Page Views**, কোন পেজ বেশি দেখা হচ্ছে, country/device/referrer
-5. শুধু **API request** সংখ্যা দেখতে: একই প্রজেক্টের **Observability → Requests / Functions** (এটা ভিজিট নয়, backend call)
+2. Vercel Dashboard → frontend প্রজেক্ট → বাম সাইডবার **Analytics** → **Enable**
+3. **Enable করার পর নতুন deployment দিন** (তবেই `/_vercel/insights/*` route তৈরি হয়)
+4. কিছু ভিজিটের পর দেখবেন: **Visitors**, **Page Views**, top pages, country/device/referrer
 
-> Analytics enable করার আগের ভিজিটগুলো দেখা যাবে না — শুধু enable + deploy-এর পরের ডেটা জমা হবে।
-
-5. **Deploy** চাপুন
+> চেক: `https://team-rank-pearl.vercel.app/_vercel/insights/script.js` → `200` হলে Analytics চালু।
+> এনাবলের আগের ভিজিট দেখা যাবে না।
 
 ---
 
-## ৪. রিয়েল-টাইম নোটিফিকেশন (Socket.IO)
+## ৪. CORS মিলিয়ে নিন (গুরুত্বপূর্ণ)
 
-কেউ **"🙋 আমি উত্তর দিতে চাই"** চাপলে সব খোলা ট্যাবে সাথে সাথে টোস্ট নোটিফিকেশন যায় এবং এক্সাম পেজ সঙ্গে সঙ্গে রিফ্রেশ হয়। এটা `server/src/server.ts`-এর Socket.IO সার্ভার করে।
-
-> ⚠️ **Vercel serverless-এ Socket.IO ব্রডকাস্ট কাজ করবে না।**
-> Vercel-এর `api/index.ts` শুধু REST চালায়, আর প্রতিটা WebSocket connection আলাদা function instance-এ pin হয় — তাই এক instance থেকে `io.emit()` অন্য ইউজারদের কাছে পৌঁছায় না (এর জন্য Redis adapter লাগে)।
-
-**রিয়েল-টাইম চাইলে backend একটি persistent host-এ নিন** (Render / Railway / Fly.io / VPS):
-
-1. Render → **New → Web Service** → GitHub repo সিলেক্ট
-2. **Root Directory** → `server`
-3. **Build Command** → `pnpm install && pnpm build`
-4. **Start Command** → `pnpm start`
-5. Environment: `MONGO_URI`, `ADMIN_KEY`, `CLIENT_URL=https://team-rank-pearl.vercel.app`
-6. Deploy → URL পাবেন, যেমন `https://teamrank-api.onrender.com`
-7. Vercel frontend-এ `NEXT_PUBLIC_API_URL` = নতুন URL → **Redeploy**
-8. (ঐচ্ছিক) `NEXT_PUBLIC_SOCKET_URL` = একই URL, যদি socket আলাদা হোস্টে হয়
-
-Vercel-এ backend রেখে দিলে অ্যাপ ঠিকই চলবে, কিন্তু নোটিফিকেশন **৫ সেকেন্ডের polling-এ** আসবে — সাথে সাথে নয়।
-
----
-
-## ৫. CORS মিলিয়ে নিন (গুরুত্বপূর্ণ)
-
-Client ডিপ্লয় হওয়ার পর তার URL (যেমন `https://teamrank-web.vercel.app`) **backend-এর `CLIENT_URL`**-এ যোগ করুন, তারপর backend **Redeploy** করুন।
-
-Preview deployment-ও কাজ করাতে চাইলে কমা দিয়ে দিন:
+Render-এর `CLIENT_URL`-এ **frontend-এর exact URL** থাকতে হবে (scheme + host, trailing slash ছাড়া):
 
 ```
-CLIENT_URL=https://teamrank-web.vercel.app,https://teamrank-web-git-main-you.vercel.app,http://localhost:3000
+CLIENT_URL=https://team-rank-pearl.vercel.app
 ```
 
-CORS মিলছে না হলে ব্রাউজারে এমন এরর দেখবেন:
+Preview deployment-ও চাইলে কমা দিয়ে:
+
+```
+CLIENT_URL=https://team-rank-pearl.vercel.app,https://team-rank-pearl-git-main-you.vercel.app,http://localhost:3000,http://localhost:3005
+```
+
+মান বদলালে Render **Manual Deploy → Clear build cache & deploy** দিন।
+
+CORS মিলছে না হলে ব্রাউজারে দেখবেন:
 `blocked by CORS policy: No 'Access-Control-Allow-Origin' header`.
+
+---
+
+## ৫. রিয়েল-টাইম নোটিফিকেশন টেস্ট
+
+1. একই এক্সাম পেজ দুটি ব্রাউজার/ট্যাবে খুলুন
+2. একটাতে **"🙋 আমি উত্তর দিতে চাই"** চাপুন
+3. অন্যটায় **সাথে সাথে** টোস্ট আসবে → "… উত্তর দিতে চেয়েছে"
+4. এক্সাম পেজও সঙ্গে সঙ্গে রিফ্রেশ হবে (৫ সেকেন্ডের polling শুধু ব্যাকআপ)
+
+Socket সংযোগ চেক করতে DevTools → Network → `WS` ফিল্টার → `socket.io` → `101 Switching Protocols`.
 
 ---
 
 ## ৬. ডিপ্লয়ের পর চেকলিস্ট
 
-- [ ] `GET /api/health` → `200 OK`
+- [ ] `GET https://<api>.onrender.com/api/health` → `200 OK`
+- [ ] Vercel frontend `NEXT_PUBLIC_API_URL` = Render URL
 - [ ] হোম পেজে ইউজারনেম দিয়ে প্রবেশ
 - [ ] `/admin` → admin key দিয়ে পরীক্ষা তৈরি
 - [ ] `/award` → Pass ক্লিক → পয়েন্ট +১
 - [ ] লিডারবোর্ডে পয়েন্ট দেখা যাচ্ছে
-- [ ] `/exam/<id>` → ৫ সেকেন্ডে অটো-রিফ্রেশ
-- [ ] দুইটা ব্রাউজার/ট্যাব খুলে একটাতে "উত্তর দিতে চাই" চাপলে অন্যটায় সাথে সাথে টোস্ট আসে
+- [ ] এক্সাম পেজে পাস-লিস্ট লোড হচ্ছে
+- [ ] দুই ট্যাবে "উত্তর দিতে চাই" → সাথে সাথে টোস্ট
+- [ ] পুরোনো Vercel backend project ডিলিট করা হয়েছে
 
 ---
 
-## লোকাল ডেভেলপমেন্ট (আগের মতোই)
+## লোকাল ডেভেলপমেন্ট
 
 ```bash
-# Terminal 1
+# Terminal 1 — API + Socket.IO
 cd server && pnpm install && pnpm dev     # http://localhost:5000
 
-# Terminal 2
+# Terminal 2 — Next.js
 cd client && pnpm install && pnpm dev     # http://localhost:3000
 ```
 
-`server/.env` এবং `client/.env.local` আগের মতোই ব্যবহার করুন।
+`server/.env` (MONGO_URI, ADMIN_KEY, CLIENT_URL=http://localhost:3000,http://localhost:3005)
+এবং `client/.env.local` (NEXT_PUBLIC_API_URL=http://localhost:5000) ব্যবহার করুন।
 
 ---
 
@@ -162,10 +168,12 @@ cd client && pnpm install && pnpm dev     # http://localhost:3000
 
 | সমস্যা | সমাধান |
 | --- | --- |
-| `Database connection failed` (503) | Atlas IP allowlist-এ `0.0.0.0/0`; `MONGO_URI` সঠিক কি না দেখুন; password-এ special character থাকলে URL-encode করুন |
-| CORS error | backend-এর `CLIENT_URL`-এ frontend URL যোগ করে redeploy |
-| `401 Invalid admin key` | Vercel env-এর `ADMIN_KEY` আর UI-তে দেওয়া কী এক কি না দেখুন |
-| Client পুরনো API URL-এ যাচ্ছে | `NEXT_PUBLIC_API_URL` বদলে **Redeploy** করুন (build-time variable) |
-| Serverless timeout | Atlas cluster pause হয়ে আছে কি না দেখুন; `server/vercel.json`-এ `maxDuration` ৩০ সেকেন্ড |
-| Build-এ `Failed to fetch Hind Siliguri from Google Fonts` | সাময়িক নেটওয়ার্ক সমস্যা — Vercel-এ **Redeploy** দিন; বারবার হলে `client/src/app/layout.tsx` থেকে `next/font/google` সরিয়ে সিস্টেম ফন্ট ব্যবহার করুন |
-| `404` on API routes | `server/vercel.json` কমিট হয়েছে কি না নিশ্চিত করুন, Root Directory = `server` |
+| Build fail: `pnpm: not found` | Build Command-এ `corepack enable &&` রাখুন, অথবা Render-এ `NODE_VERSION=22` দিন |
+| Build fail: `tsc not found` | `pnpm install --frozen-lockfile --prod=false` ব্যবহার করুন (devDependencies দরকার) |
+| `Database connection failed` | Atlas IP allowlist-এ `0.0.0.0/0`; `MONGO_URI` সঠিক; password special character হলে URL-encode |
+| CORS error | Render `CLIENT_URL`-এ frontend URL দিন → redeploy |
+| `401 Invalid admin key` | Render env-এর `ADMIN_KEY` আর UI-তে দেওয়া কী এক কি না দেখুন |
+| Client পুরনো API URL-এ যাচ্ছে | `NEXT_PUBLIC_API_URL` বদলে Vercel-এ **Redeploy** |
+| Socket connect হচ্ছে না | `CLIENT_URL` সঠিক কি না; Render logs-এ `[socket]` লাইন দেখুন; free tier ঘুম থেকে জাগতে সময় লাগে |
+| প্রথম রিকোয়েস্ট ৩০–৬০s | Render free tier cold start — স্বাভাবিক; Pro নিলে এড়ানো যায় |
+| `Failed to fetch Hind Siliguri from Google Fonts` | সাময়িক নেটওয়ার্ক সমস্যা — আবার deploy দিন |

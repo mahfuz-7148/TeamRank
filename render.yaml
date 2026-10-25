@@ -1,0 +1,22 @@
+# Render Blueprint — TeamRank API (Express + Socket.IO + MongoDB)
+# The Next.js frontend is deployed separately (e.g. Vercel).
+services:
+  - type: web
+    name: teamrank-api
+    runtime: node
+    plan: free
+    region: singapore
+    rootDir: server
+    buildCommand: corepack enable && pnpm install --frozen-lockfile --prod=false && pnpm build
+    startCommand: pnpm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: MONGO_URI
+        sync: false
+      - key: ADMIN_KEY
+        sync: false
+      # Comma-separated frontend origins, e.g. https://team-rank-pearl.vercel.app
+      - key: CLIENT_URL
+        sync: false

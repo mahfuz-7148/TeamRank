@@ -24,7 +24,6 @@ export default function ExamDetailPage() {
 
   const [exam, setExam] = useState<ExamDetail | null>(null);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [me, setMe] = useState<SavedUser | null>(null);
@@ -48,7 +47,6 @@ export default function ExamDetailPage() {
 
   const loadExam = useCallback(async () => {
     if (!id) return;
-    setRefreshing(true);
     try {
       const data = await getExam(id);
       setExam(data);
@@ -59,7 +57,6 @@ export default function ExamDetailPage() {
       );
     } finally {
       setLoading(false);
-      setRefreshing(false);
     }
   }, [id]);
 
@@ -315,19 +312,8 @@ export default function ExamDetailPage() {
           <h2 className="flex items-center gap-2 text-lg font-bold text-slate-900">
             🎖️ যারা পাস করেছে
           </h2>
-          <span
-            className={`flex items-center gap-1.5 text-xs text-slate-400 transition-opacity duration-300 ${
-              refreshing ? "opacity-100" : "opacity-0"
-            }`}
-          >
-            <span className="h-3 w-3 animate-spin rounded-full border-2 border-indigo-100 border-t-indigo-400" />
-            আপডেট হচ্ছে
-          </span>
         </div>
         <PassedList users={exam.checkedBy} />
-        <p className="mt-3 text-center text-xs text-slate-400">
-          প্রতি ৫ সেকেন্ডে স্বয়ংক্রিয়ভাবে আপডেট হয়
-        </p>
       </section>
     </article>
   );
