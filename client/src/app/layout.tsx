@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { Hind_Siliguri } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
+import RealtimeNotifications from "@/components/RealtimeNotifications";
 import "./globals.css";
 
 const hindSiliguri = Hind_Siliguri({
@@ -63,6 +64,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             TeamRank — টিম পরীক্ষা ও লিডারবোর্ড
           </footer>
         </div>
+        <RealtimeNotifications />
         <Analytics />
       </body>
     </html>

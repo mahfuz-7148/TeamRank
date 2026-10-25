@@ -95,7 +95,29 @@ Vercel **Web Analytics** দিয়ে page view / unique visitor দেখা
 
 ---
 
-## ৪. CORS মিলিয়ে নিন (গুরুত্বপূর্ণ)
+## ৪. রিয়েল-টাইম নোটিফিকেশন (Socket.IO)
+
+কেউ **"🙋 আমি উত্তর দিতে চাই"** চাপলে সব খোলা ট্যাবে সাথে সাথে টোস্ট নোটিফিকেশন যায় এবং এক্সাম পেজ সঙ্গে সঙ্গে রিফ্রেশ হয়। এটা `server/src/server.ts`-এর Socket.IO সার্ভার করে।
+
+> ⚠️ **Vercel serverless-এ Socket.IO ব্রডকাস্ট কাজ করবে না।**
+> Vercel-এর `api/index.ts` শুধু REST চালায়, আর প্রতিটা WebSocket connection আলাদা function instance-এ pin হয় — তাই এক instance থেকে `io.emit()` অন্য ইউজারদের কাছে পৌঁছায় না (এর জন্য Redis adapter লাগে)।
+
+**রিয়েল-টাইম চাইলে backend একটি persistent host-এ নিন** (Render / Railway / Fly.io / VPS):
+
+1. Render → **New → Web Service** → GitHub repo সিলেক্ট
+2. **Root Directory** → `server`
+3. **Build Command** → `pnpm install && pnpm build`
+4. **Start Command** → `pnpm start`
+5. Environment: `MONGO_URI`, `ADMIN_KEY`, `CLIENT_URL=https://team-rank-pearl.vercel.app`
+6. Deploy → URL পাবেন, যেমন `https://teamrank-api.onrender.com`
+7. Vercel frontend-এ `NEXT_PUBLIC_API_URL` = নতুন URL → **Redeploy**
+8. (ঐচ্ছিক) `NEXT_PUBLIC_SOCKET_URL` = একই URL, যদি socket আলাদা হোস্টে হয়
+
+Vercel-এ backend রেখে দিলে অ্যাপ ঠিকই চলবে, কিন্তু নোটিফিকেশন **৫ সেকেন্ডের polling-এ** আসবে — সাথে সাথে নয়।
+
+---
+
+## ৫. CORS মিলিয়ে নিন (গুরুত্বপূর্ণ)
 
 Client ডিপ্লয় হওয়ার পর তার URL (যেমন `https://teamrank-web.vercel.app`) **backend-এর `CLIENT_URL`**-এ যোগ করুন, তারপর backend **Redeploy** করুন।
 
@@ -110,7 +132,7 @@ CORS মিলছে না হলে ব্রাউজারে এমন এ�
 
 ---
 
-## ৫. ডিপ্লয়ের পর চেকলিস্ট
+## ৬. ডিপ্লয়ের পর চেকলিস্ট
 
 - [ ] `GET /api/health` → `200 OK`
 - [ ] হোম পেজে ইউজারনেম দিয়ে প্রবেশ
@@ -118,6 +140,7 @@ CORS মিলছে না হলে ব্রাউজারে এমন এ�
 - [ ] `/award` → Pass ক্লিক → পয়েন্ট +১
 - [ ] লিডারবোর্ডে পয়েন্ট দেখা যাচ্ছে
 - [ ] `/exam/<id>` → ৫ সেকেন্ডে অটো-রিফ্রেশ
+- [ ] দুইটা ব্রাউজার/ট্যাব খুলে একটাতে "উত্তর দিতে চাই" চাপলে অন্যটায় সাথে সাথে টোস্ট আসে
 
 ---
 

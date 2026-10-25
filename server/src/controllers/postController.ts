@@ -3,6 +3,7 @@ import { StatusCodes } from "http-status-codes";
 import Post, { type IPost } from "../models/Post";
 import User from "../models/User";
 import { HttpError } from "../middleware/validateObjectId";
+import { emitExamResponse } from "../realtime";
 import { getValidatedBody } from "../types";
 import type { AwardInput, CreatePostInput } from "../types/schemas";
 
@@ -183,6 +184,16 @@ export async function selfRespond(
     if (!updated) {
       throw new HttpError(StatusCodes.NOT_FOUND, "পরীক্ষাটি খুঁজে পাওয়া যায়নি");
     }
+
+    // Notify every connected client in real time (Socket.IO).
+    emitExamResponse({
+      examId: updated._id.toString(),
+      examTitle: updated.title,
+      userId: user._id.toString(),
+      username: user.username,
+      respondersCount: (updated.responders ?? []).length,
+      at: new Date().toISOString(),
+    });
 
     res.status(StatusCodes.OK).json({
       success: true,

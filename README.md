@@ -11,6 +11,7 @@ A full-stack **team exam, points and leaderboard system**. Admins create exams (
 - Exam detail page shows each user's pass count (e.g. "✅ ৩ বার").
 - Exam cards show both **total passes** and **unique users**.
 - Leaderboard points = total number of passes recorded for the user across all exams.
+- **Real-time:** when anyone presses **"🙋 আমি উত্তর দিতে চাই"**, every open tab gets an instant Socket.IO toast and the exam page refreshes immediately (5s polling remains as fallback).
 
 ## Tech stack
 
@@ -45,8 +46,9 @@ TeamRank/
 │       │   ├── postRoutes.ts
 │       │   └── leaderboardRoutes.ts
 │       ├── types/                    # shared types + zod schemas
+│       ├── realtime.ts               # Socket.IO singleton + broadcast
 │       ├── app.ts                    # Express app (CORS, routes, errors)
-│       └── server.ts                 # entry point
+│       └── server.ts                 # HTTP + Socket.IO entry point
 └── client/
     └── src/
         ├── app/
@@ -109,7 +111,14 @@ pnpm dev                           # http://localhost:3000
 
 ```env
 NEXT_PUBLIC_API_URL=http://localhost:5000
+# optional — only if Socket.IO lives on another host
+# NEXT_PUBLIC_SOCKET_URL=http://localhost:5000
 ```
+
+> Socket.IO runs from `server/src/server.ts`. For real-time notifications in
+> production the API must run on a persistent host (Render/Railway/Fly/VPS).
+> On Vercel's serverless API the app still works, but falls back to 5s polling.
+> See [DEPLOY.md](./DEPLOY.md#৪-রিয়েল-টাইম-নোটিফিকেশন-socketio).
 
 ### Production build
 
@@ -161,7 +170,7 @@ Admin routes require the header `x-admin-key: <ADMIN_KEY>`. Invalid ObjectIds re
 
 1. **Join** — a team member opens the app, enters a username once. The user is created in MongoDB and `{ id, username }` is saved in `localStorage`, so they're never asked again.
 2. **Exams** — the home page lists all exams (newest first) with a pass count, plus the live leaderboard.
-3. **Exam detail** — clicking an exam shows its description, who wants to answer, and everyone who passed it. The lists auto-refresh every 5 seconds. A logged-in member also sees an **"🙋 আমি উত্তর দিতে চাই"** button: one click adds only their name to the responder list (no pass, no points). The admin later awards points to whoever answers correctly.
+3. **Exam detail** — clicking an exam shows its description, who wants to answer, and everyone who passed it. A logged-in member sees an **"🙋 আমি উত্তর দিতে চাই"** button: one click adds only their name to the responder list (no pass, no points). The admin later awards points to whoever answers correctly. Every press is pushed over **Socket.IO** to all open tabs as a notification, and the exam page refreshes instantly (5s polling is the fallback).
 4. **Admin creates exams** — on `/admin`, the admin enters their key (kept **only** in component state, never persisted), a title and optional content.
 5. **Admin awards points** — on `/award`, the admin picks an exam and clicks **Pass** per user. Every click records one more pass (`$push`), so a student who answered 3 questions correctly can be given 3 points. Each user's running count appears as a badge.
 6. **Leaderboard** — points are computed live by unwinding `checkedBy` across posts, grouping per user and counting entries, then sorted by points (desc) and username (asc). Nothing is stored as a total.

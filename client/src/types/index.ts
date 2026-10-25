@@ -25,6 +25,15 @@ export interface ExamDetail extends ExamSummary {
   }[];
 }
 
+export interface ExamResponseEvent {
+  examId: string;
+  examTitle: string;
+  userId: string;
+  username: string;
+  respondersCount: number;
+  at: string;
+}
+
 export interface LeaderboardEntry {
   id: string;
   username: string;

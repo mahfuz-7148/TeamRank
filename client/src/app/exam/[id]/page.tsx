@@ -6,8 +6,9 @@ import { useParams } from "next/navigation";
 import PassedList from "@/components/PassedList";
 import ResponderList from "@/components/ResponderList";
 import { ApiError, getExam, respondToExam } from "@/lib/api";
+import { getSocket } from "@/lib/socket";
 import { getSavedUser } from "@/lib/user";
-import type { ExamDetail } from "@/types";
+import type { ExamDetail, ExamResponseEvent } from "@/types";
 
 const REFRESH_INTERVAL_MS = 5000;
 const RESPOND_COOLDOWN_SECONDS = 5;
@@ -69,6 +70,20 @@ export default function ExamDetailPage() {
     }, REFRESH_INTERVAL_MS);
     return () => clearInterval(timer);
   }, [loadExam]);
+
+  // Socket.IO pushes an instant refresh when someone responds on this exam.
+  // The 5-second polling above stays as a fallback.
+  useEffect(() => {
+    if (!id) return;
+    const socket = getSocket();
+    function handleResponse(event: ExamResponseEvent) {
+      if (event.examId === id) void loadExam();
+    }
+    socket.on("exam:response", handleResponse);
+    return () => {
+      socket.off("exam:response", handleResponse);
+    };
+  }, [id, loadExam]);
 
   // Respond: adds my name to the "wants to answer" list only.
   // This never adds a pass or a point — the admin awards those separately.

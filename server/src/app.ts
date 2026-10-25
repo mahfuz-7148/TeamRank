@@ -4,16 +4,13 @@ import { userRoutes } from "./routes/userRoutes";
 import { postRoutes } from "./routes/postRoutes";
 import { leaderboardRoutes } from "./routes/leaderboardRoutes";
 import { errorHandler, notFoundHandler } from "./middleware/errorHandler";
+import { getAllowedOrigins } from "./config/origins";
 
 export function createApp(): Express {
   const app = express();
 
-  // CORS: only the configured client origin(s). CLIENT_URL accepts a
-  // comma-separated list, e.g. "https://app.vercel.app,http://localhost:3000".
-  const allowedOrigins = (process.env.CLIENT_URL ?? "")
-    .split(",")
-    .map((origin) => origin.trim())
-    .filter(Boolean);
+  // CORS: only the configured client origin(s), see config/origins.ts.
+  const allowedOrigins = getAllowedOrigins();
 
   app.use(
     cors({
