@@ -7,8 +7,8 @@ services:
     plan: free
     region: singapore
     rootDir: server
-    buildCommand: corepack enable && pnpm install --frozen-lockfile --prod=false && pnpm build
-    startCommand: pnpm start
+    buildCommand: pnpm install --frozen-lockfile --prod=false && pnpm build
+    startCommand: node dist/src/server.js
     healthCheckPath: /api/health
     envVars:
       - key: NODE_VERSION

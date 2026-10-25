@@ -46,12 +46,16 @@ Render ও Vercel-এর dashboard-এ সেট করবেন।
 4. **Region** → `Singapore` (বাংলাদেশের জন্য সবচেয়ে কাছাকাছি)
 5. **Build Command**:
    ```bash
-   corepack enable && pnpm install --frozen-lockfile --prod=false && pnpm build
+   pnpm install --frozen-lockfile --prod=false && pnpm build
    ```
 6. **Start Command**:
    ```bash
-   pnpm start
+   node dist/src/server.js
    ```
+
+> ⚠️ Build Command-এ `corepack enable` **দেবেন না** — Render-এ `/usr/bin/pnpm`
+> read-only, তাই `EROFS: read-only file system, unlink '/usr/bin/pnpm'` এরর হয়।
+> Render-এ pnpm আগে থেকেই ইনস্টল থাকে।
 7. **Health Check Path** → `/api/health`
 8. **Environment Variables**:
 
@@ -168,7 +172,8 @@ cd client && pnpm install && pnpm dev     # http://localhost:3000
 
 | সমস্যা | সমাধান |
 | --- | --- |
-| Build fail: `pnpm: not found` | Build Command-এ `corepack enable &&` রাখুন, অথবা Render-এ `NODE_VERSION=22` দিন |
+| `EROFS: read-only file system, unlink '/usr/bin/pnpm'` | Build Command থেকে `corepack enable &&` **সরান**; Render-এর pnpm ব্যবহার করুন |
+| Build fail: `pnpm: not found` | Build Command-এ `corepack pnpm install ...` ব্যবহার করুন (enable নয়), অথবা `NODE_VERSION=22` দিন |
 | Build fail: `tsc not found` | `pnpm install --frozen-lockfile --prod=false` ব্যবহার করুন (devDependencies দরকার) |
 | `Database connection failed` | Atlas IP allowlist-এ `0.0.0.0/0`; `MONGO_URI` সঠিক; password special character হলে URL-encode |
 | CORS error | Render `CLIENT_URL`-এ frontend URL দিন → redeploy |

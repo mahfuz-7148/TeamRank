@@ -143,8 +143,8 @@ Quick summary:
 1. Push the repo to GitHub.
 2. Render → **New → Blueprint** (uses `render.yaml`) or a Web Service with
    **Root Directory = `server`**, then set `MONGO_URI`, `ADMIN_KEY`, `CLIENT_URL`.
-   Build: `corepack enable && pnpm install --frozen-lockfile --prod=false && pnpm build`
-   · Start: `pnpm start` · Health check: `/api/health`.
+   Build: `pnpm install --frozen-lockfile --prod=false && pnpm build`
+   · Start: `node dist/src/server.js` · Health check: `/api/health`.
 3. Vercel → frontend project with **Root Directory = `client`**, set
    `NEXT_PUBLIC_API_URL=https://<your-api>.onrender.com`, then deploy.
 4. Put the Vercel client URL into Render's `CLIENT_URL` and redeploy the API.
