@@ -151,8 +151,8 @@ export async function deletePost(
   }
 }
 
-// POST /api/posts/:id/pass — a user marks their own pass (public, once per exam)
-// Idempotent: pressing again never adds a second point.
+// POST /api/posts/:id/pass — a user marks their own pass (public)
+// Every press adds one pass, so a member can be given several questions.
 export async function selfPass(
   req: Request,
   res: Response,
@@ -166,29 +166,14 @@ export async function selfPass(
       throw new HttpError(StatusCodes.NOT_FOUND, "ইউজার খুঁজে পাওয়া যায়নি");
     }
 
-    const post = await Post.findById(req.params.id);
-    if (!post) {
-      throw new HttpError(StatusCodes.NOT_FOUND, "পরীক্ষাটি খুঁজে পাওয়া যায়নি");
-    }
-
-    const alreadyPassed = post.checkedBy.some(
-      (id) => id.toString() === user._id.toString()
+    const updated = await Post.findByIdAndUpdate(
+      req.params.id,
+      { $push: { checkedBy: user._id } },
+      { new: true }
     );
 
-    let updated = post;
-    if (!alreadyPassed) {
-      const result = await Post.findByIdAndUpdate(
-        post._id,
-        { $addToSet: { checkedBy: user._id } },
-        { new: true }
-      );
-      if (!result) {
-        throw new HttpError(
-          StatusCodes.INTERNAL_SERVER_ERROR,
-          "পাস রেকর্ড করা যায়নি"
-        );
-      }
-      updated = result;
+    if (!updated) {
+      throw new HttpError(StatusCodes.NOT_FOUND, "পরীক্ষাটি খুঁজে পাওয়া যায়নি");
     }
 
     const userPasses = updated.checkedBy.filter(
@@ -200,7 +185,6 @@ export async function selfPass(
       data: {
         id: updated._id.toString(),
         passed: true,
-        alreadyPassed,
         userPasses,
         passedCount: updated.checkedBy.length,
         uniqueUsers: new Set(

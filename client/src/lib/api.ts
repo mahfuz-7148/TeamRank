@@ -109,7 +109,6 @@ export function getExam(id: string): Promise<ExamDetail> {
 export interface SelfPassResult {
   id: string;
   passed: boolean;
-  alreadyPassed: boolean;
   userPasses: number;
   passedCount: number;
   uniqueUsers: number;

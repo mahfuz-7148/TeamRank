@@ -27,6 +27,7 @@ export default function ExamDetailPage() {
   const [me, setMe] = useState<SavedUser | null>(null);
   const [passing, setPassing] = useState(false);
   const [passError, setPassError] = useState<string | null>(null);
+  const [passMessage, setPassMessage] = useState<string | null>(null);
 
   useEffect(() => {
     setMe(getSavedUser());
@@ -57,18 +58,19 @@ export default function ExamDetailPage() {
     return () => clearInterval(timer);
   }, [loadExam]);
 
-  // Self-pass: mark me as passed, then refresh so my name appears immediately
+  // Self-pass: every press adds one pass, then refresh the list immediately
   async function handleSelfPass() {
     if (!me || !exam || passing) return;
     setPassing(true);
     setPassError(null);
+    setPassMessage(null);
     try {
       const result = await selfPass(exam.id, me.id);
       // Optimistic update for instant feedback
       setExam((prev) => {
         if (!prev) return prev;
-        const already = prev.checkedBy.some((u) => u.id === me.id);
-        const checkedBy = already
+        const exists = prev.checkedBy.some((u) => u.id === me.id);
+        const checkedBy = exists
           ? prev.checkedBy.map((u) =>
               u.id === me.id ? { ...u, passes: result.userPasses } : u
             )
@@ -83,8 +85,12 @@ export default function ExamDetailPage() {
           uniqueUsers: result.uniqueUsers,
         };
       });
+      setPassMessage(
+        `🎉 পাস রেকর্ড হয়েছে! আপনি এখন ${result.userPasses} বার পাস করেছেন।`
+      );
       // Confirm with server data
-      void loadExam();    } catch (err) {
+      void loadExam();
+    } catch (err) {
       setPassError(
         err instanceof ApiError ? err.message : "পাস রেকর্ড করা যায়নি"
       );
@@ -150,9 +156,9 @@ export default function ExamDetailPage() {
     year: "numeric",
   });
 
-  const alreadyPassed = me
-    ? exam.checkedBy.some((u) => u.id === me.id)
-    : false;
+  const myPasses = me
+    ? exam.checkedBy.find((u) => u.id === me.id)?.passes ?? 0
+    : 0;
 
   return (
     <article className="flex flex-col gap-7">
@@ -200,29 +206,22 @@ export default function ExamDetailPage() {
               নাম দিন →
             </Link>
           </div>
-        ) : alreadyPassed ? (
-          <div className="flex items-center gap-3">
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-400 to-teal-500 text-xl text-white shadow-md shadow-emerald-200">
-              ✅
-            </span>
-            <div>
-              <p className="font-semibold text-emerald-700">
-                আপনি এই পরীক্ষায় পাস করেছেন!
-              </p>
-              <p className="text-xs text-slate-500">
-                আপনার নাম নিচের তালিকায় আছে — মোট {exam.passedCount}টি পাস।
-              </p>
-            </div>
-          </div>
         ) : (
           <div className="flex flex-col gap-3">
             <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <p className="font-semibold text-slate-800">
-                  {me.username}, পরীক্ষাটি কি পারছেন?
+                <p className="flex flex-wrap items-center gap-2 font-semibold text-slate-800">
+                  <span>{me.username}, পরীক্ষাটি কি পারছেন?</span>
+                  {myPasses > 0 && (
+                    <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-bold text-emerald-700 ring-1 ring-emerald-200">
+                      ✅ {myPasses} বার পাস
+                    </span>
+                  )}
                 </p>
                 <p className="mt-0.5 text-xs text-slate-500">
-                  পাস করলে নিচের বাটনে চাপুন — সাথে সাথে আপনার নাম তালিকায় উঠবে।
+                  {myPasses > 0
+                    ? "আরেকটি প্রশ্নের উত্তর দিতে আবার চাপুন — প্রতিবার +১ যোগ হবে।"
+                    : "পাস করলে নিচের বাটনে চাপুন — সাথে সাথে আপনার নাম তালিকায় উঠবে।"}
                 </p>
               </div>
               <button
@@ -237,10 +236,15 @@ export default function ExamDetailPage() {
                     যোগ হচ্ছে...
                   </span>
                 ) : (
-                  "✅ আমি পাস করেছি"
+                  "✅ আমি পাস করেছি (+১)"
                 )}
               </button>
             </div>
+            {passMessage && (
+              <p className="animate-scale-in rounded-xl bg-emerald-50 px-4 py-2.5 text-sm font-medium text-emerald-700 ring-1 ring-emerald-100">
+                {passMessage}
+              </p>
+            )}
             {passError && (
               <p className="animate-scale-in rounded-xl bg-red-50 px-4 py-2.5 text-sm text-red-600 ring-1 ring-red-100">
                 ⚠️ {passError}
