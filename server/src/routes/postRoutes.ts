@@ -5,7 +5,7 @@ import {
   deletePost,
   getPost,
   listPosts,
-  selfPass,
+  selfRespond,
 } from "../controllers/postController";
 import { adminOnly } from "../middleware/adminOnly";
 import { validateObjectId } from "../middleware/validateObjectId";
@@ -18,10 +18,17 @@ router.post("/", adminOnly, validate(createPostSchema), createPost);
 router.get("/", listPosts);
 router.get("/:id", validateObjectId("id"), getPost);
 router.post(
+  "/:id/respond",
+  validateObjectId("id"),
+  validate(selfPassSchema),
+  selfRespond
+);
+// Backward-compatible alias for older clients
+router.post(
   "/:id/pass",
   validateObjectId("id"),
   validate(selfPassSchema),
-  selfPass
+  selfRespond
 );
 router.delete("/:id", adminOnly, validateObjectId("id"), deletePost);
 router.post(

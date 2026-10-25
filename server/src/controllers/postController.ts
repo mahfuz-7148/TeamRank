@@ -11,8 +11,9 @@ interface PopulatedUser {
   username: string;
 }
 
-type PostWithPopulated = Omit<IPost, "checkedBy"> & {
+type PostWithPopulated = Omit<IPost, "checkedBy" | "responders"> & {
   checkedBy: PopulatedUser[];
+  responders: PopulatedUser[];
 };
 
 interface ExamSummaryDto {
@@ -26,6 +27,7 @@ interface ExamSummaryDto {
 
 interface ExamDetailDto extends ExamSummaryDto {
   checkedBy: { id: string; username: string; passes: number }[];
+  responders: { id: string; username: string }[];
 }
 
 function toSummaryDto(post: IPost): ExamSummaryDto {
@@ -88,11 +90,11 @@ export async function getPost(
   try {
     const post = await Post.findById(req.params.id).populate<{
       checkedBy: PopulatedUser[];
-    }>({
-      path: "checkedBy",
-      select: "username",
-      model: User,
-    });
+      responders: PopulatedUser[];
+    }>([
+      { path: "checkedBy", select: "username", model: User },
+      { path: "responders", select: "username", model: User },
+    ]);
 
     if (!post) {
       throw new HttpError(StatusCodes.NOT_FOUND, "পরীক্ষাটি খুঁজে পাওয়া যায়নি");
@@ -119,6 +121,12 @@ export async function getPost(
         }
         return acc;
       }, []),
+      responders: (
+        (post as unknown as PostWithPopulated).responders ?? []
+      ).map((u) => ({
+        id: u._id.toString(),
+        username: u.username,
+      })),
     };
 
     res.status(StatusCodes.OK).json({
@@ -151,9 +159,9 @@ export async function deletePost(
   }
 }
 
-// POST /api/posts/:id/pass — a user marks their own pass (public)
-// Every press adds one pass, so a member can be given several questions.
-export async function selfPass(
+// POST /api/posts/:id/respond — a user raises their hand for this exam (public)
+// Only adds the user's name to `responders`; it never adds a pass or point.
+export async function selfRespond(
   req: Request,
   res: Response,
   next: NextFunction
@@ -168,7 +176,7 @@ export async function selfPass(
 
     const updated = await Post.findByIdAndUpdate(
       req.params.id,
-      { $push: { checkedBy: user._id } },
+      { $addToSet: { responders: user._id } },
       { new: true }
     );
 
@@ -176,20 +184,12 @@ export async function selfPass(
       throw new HttpError(StatusCodes.NOT_FOUND, "পরীক্ষাটি খুঁজে পাওয়া যায়নি");
     }
 
-    const userPasses = updated.checkedBy.filter(
-      (id) => id.toString() === user._id.toString()
-    ).length;
-
     res.status(StatusCodes.OK).json({
       success: true,
       data: {
         id: updated._id.toString(),
-        passed: true,
-        userPasses,
-        passedCount: updated.checkedBy.length,
-        uniqueUsers: new Set(
-          updated.checkedBy.map((id) => id.toString())
-        ).size,
+        responded: true,
+        respondersCount: (updated.responders ?? []).length,
       },
     });
   } catch (err) {

@@ -4,7 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import PassedList from "@/components/PassedList";
-import { ApiError, getExam, selfPass } from "@/lib/api";
+import ResponderList from "@/components/ResponderList";
+import { ApiError, getExam, respondToExam } from "@/lib/api";
 import { getSavedUser } from "@/lib/user";
 import type { ExamDetail } from "@/types";
 
@@ -25,9 +26,9 @@ export default function ExamDetailPage() {
   const [error, setError] = useState<string | null>(null);
 
   const [me, setMe] = useState<SavedUser | null>(null);
-  const [passing, setPassing] = useState(false);
-  const [passError, setPassError] = useState<string | null>(null);
-  const [passMessage, setPassMessage] = useState<string | null>(null);
+  const [responding, setResponding] = useState(false);
+  const [respondError, setRespondError] = useState<string | null>(null);
+  const [respondMessage, setRespondMessage] = useState<string | null>(null);
 
   useEffect(() => {
     setMe(getSavedUser());
@@ -58,44 +59,39 @@ export default function ExamDetailPage() {
     return () => clearInterval(timer);
   }, [loadExam]);
 
-  // Self-pass: every press adds one pass, then refresh the list immediately
-  async function handleSelfPass() {
-    if (!me || !exam || passing) return;
-    setPassing(true);
-    setPassError(null);
-    setPassMessage(null);
+  // Respond: adds my name to the "wants to answer" list only.
+  // This never adds a pass or a point — the admin awards those separately.
+  async function handleRespond() {
+    if (!me || !exam || responding) return;
+    if (exam.responders.some((u) => u.id === me.id)) return;
+    setResponding(true);
+    setRespondError(null);
+    setRespondMessage(null);
     try {
-      const result = await selfPass(exam.id, me.id);
+      await respondToExam(exam.id, me.id);
       // Optimistic update for instant feedback
       setExam((prev) => {
         if (!prev) return prev;
-        const exists = prev.checkedBy.some((u) => u.id === me.id);
-        const checkedBy = exists
-          ? prev.checkedBy.map((u) =>
-              u.id === me.id ? { ...u, passes: result.userPasses } : u
-            )
-          : [
-              ...prev.checkedBy,
-              { id: me.id, username: me.username, passes: result.userPasses },
-            ];
+        if (prev.responders.some((u) => u.id === me.id)) return prev;
         return {
           ...prev,
-          checkedBy,
-          passedCount: result.passedCount,
-          uniqueUsers: result.uniqueUsers,
+          responders: [
+            ...prev.responders,
+            { id: me.id, username: me.username },
+          ],
         };
       });
-      setPassMessage(
-        `🎉 পাস রেকর্ড হয়েছে! আপনি এখন ${result.userPasses} বার পাস করেছেন।`
+      setRespondMessage(
+        "✅ আপনার নাম তালিকায় যোগ হয়েছে — এখন উত্তর দেওয়ার সুযোগ পাবেন।"
       );
       // Confirm with server data
       void loadExam();
     } catch (err) {
-      setPassError(
-        err instanceof ApiError ? err.message : "পাস রেকর্ড করা যায়নি"
+      setRespondError(
+        err instanceof ApiError ? err.message : "নাম যোগ করা যায়নি"
       );
     } finally {
-      setPassing(false);
+      setResponding(false);
     }
   }
 
@@ -156,9 +152,9 @@ export default function ExamDetailPage() {
     year: "numeric",
   });
 
-  const myPasses = me
-    ? exam.checkedBy.find((u) => u.id === me.id)?.passes ?? 0
-    : 0;
+  const hasResponded = me
+    ? exam.responders.some((u) => u.id === me.id)
+    : false;
 
   return (
     <article className="flex flex-col gap-7">
@@ -192,12 +188,12 @@ export default function ExamDetailPage() {
         )}
       </header>
 
-      {/* Self pass — user marks their own success */}
+      {/* Raise hand — only adds the name, never a pass or a point */}
       <section className="animate-fade-in-up rounded-2xl border border-slate-200/80 bg-white/80 p-5 shadow-sm backdrop-blur">
         {!me ? (
           <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm text-slate-600">
-              এই পরীক্ষা পাস করলে আপনার নাম তালিকায় যোগ করতে প্রথমে নাম দিন।
+              এই প্রশ্নের উত্তর দিতে চাইলে প্রথমে আপনার নাম দিন।
             </p>
             <Link
               href="/"
@@ -210,48 +206,60 @@ export default function ExamDetailPage() {
           <div className="flex flex-col gap-3">
             <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <p className="flex flex-wrap items-center gap-2 font-semibold text-slate-800">
-                  <span>{me.username}, পরীক্ষাটি কি পারছেন?</span>
-                  {myPasses > 0 && (
-                    <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-bold text-emerald-700 ring-1 ring-emerald-200">
-                      ✅ {myPasses} বার পাস
-                    </span>
-                  )}
+                <p className="font-semibold text-slate-800">
+                  {me.username}, এই প্রশ্নের উত্তর দিতে চান?
                 </p>
                 <p className="mt-0.5 text-xs text-slate-500">
-                  {myPasses > 0
-                    ? "আরেকটি প্রশ্নের উত্তর দিতে আবার চাপুন — প্রতিবার +১ যোগ হবে।"
-                    : "পাস করলে নিচের বাটনে চাপুন — সাথে সাথে আপনার নাম তালিকায় উঠবে।"}
+                  বাটনে চাপলে শুধু আপনার নাম তালিকায় উঠবে — কোনো পাস বা পয়েন্ট
+                  যোগ হবে না।
                 </p>
               </div>
               <button
                 type="button"
-                onClick={() => void handleSelfPass()}
-                disabled={passing}
-                className="shrink-0 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-emerald-200 transition-all duration-200 hover:shadow-xl hover:shadow-emerald-300 active:scale-95 disabled:cursor-not-allowed disabled:opacity-70"
+                onClick={() => void handleRespond()}
+                disabled={responding || hasResponded}
+                className={`shrink-0 rounded-xl px-6 py-3 text-sm font-bold text-white shadow-lg transition-all duration-200 active:scale-95 disabled:cursor-not-allowed disabled:opacity-80 ${
+                  hasResponded
+                    ? "bg-gradient-to-r from-emerald-500 to-teal-600 shadow-emerald-200"
+                    : "bg-gradient-to-r from-indigo-600 to-violet-600 shadow-indigo-200 hover:shadow-xl hover:shadow-indigo-300"
+                }`}
               >
-                {passing ? (
+                {responding ? (
                   <span className="flex items-center gap-2">
                     <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
                     যোগ হচ্ছে...
                   </span>
+                ) : hasResponded ? (
+                  "✅ আপনার নাম তালিকায় আছে"
                 ) : (
-                  "✅ আমি পাস করেছি (+১)"
+                  "🙋 আমি উত্তর দিতে চাই"
                 )}
               </button>
             </div>
-            {passMessage && (
+            {respondMessage && (
               <p className="animate-scale-in rounded-xl bg-emerald-50 px-4 py-2.5 text-sm font-medium text-emerald-700 ring-1 ring-emerald-100">
-                {passMessage}
+                {respondMessage}
               </p>
             )}
-            {passError && (
+            {respondError && (
               <p className="animate-scale-in rounded-xl bg-red-50 px-4 py-2.5 text-sm text-red-600 ring-1 ring-red-100">
-                ⚠️ {passError}
+                ⚠️ {respondError}
               </p>
             )}
           </div>
         )}
+      </section>
+
+      <section>
+        <div className="mb-3.5 flex flex-wrap items-center gap-2">
+          <h2 className="flex items-center gap-2 text-lg font-bold text-slate-900">
+            🙋 যারা উত্তর দিতে চায়
+          </h2>
+          <span className="rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs font-bold text-indigo-600 ring-1 ring-indigo-100">
+            {exam.responders.length} জন
+          </span>
+        </div>
+        <ResponderList users={exam.responders} />
       </section>
 
       <section>

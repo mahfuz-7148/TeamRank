@@ -19,6 +19,10 @@ export interface ExamDetail extends ExamSummary {
     username: string;
     passes: number;
   }[];
+  responders: {
+    id: string;
+    username: string;
+  }[];
 }
 
 export interface LeaderboardEntry {

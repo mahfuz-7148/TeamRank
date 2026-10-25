@@ -5,6 +5,8 @@ export interface IPost {
   title: string;
   content: string;
   checkedBy: Types.Array<Types.ObjectId>;
+  // Users who pressed "I want to answer" — names only, no points.
+  responders: Types.Array<Types.ObjectId>;
   createdAt: Date;
 }
 const postSchema = new Schema<IPost>(
@@ -20,6 +22,13 @@ const postSchema = new Schema<IPost>(
       trim: true,
     },
     checkedBy: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: "User",
+        default: [],
+      },
+    ],
+    responders: [
       {
         type: Schema.Types.ObjectId,
         ref: "User",

@@ -106,19 +106,18 @@ export function getExam(id: string): Promise<ExamDetail> {
   return request<ExamDetail>(`/api/posts/${id}`);
 }
 
-export interface SelfPassResult {
+export interface RespondResult {
   id: string;
-  passed: boolean;
-  userPasses: number;
-  passedCount: number;
-  uniqueUsers: number;
+  responded: boolean;
+  respondersCount: number;
 }
 
-export function selfPass(
+// Adds the user's name to the "wants to answer" list. No pass, no points.
+export function respondToExam(
   examId: string,
   userId: string
-): Promise<SelfPassResult> {
-  return request<SelfPassResult>(`/api/posts/${examId}/pass`, {
+): Promise<RespondResult> {
+  return request<RespondResult>(`/api/posts/${examId}/respond`, {
     method: "POST",
     body: { userId },
   });
