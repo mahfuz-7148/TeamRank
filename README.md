@@ -4,6 +4,14 @@ A full-stack **team exam, points and leaderboard system**. Admins create exams (
 
 > **Design note:** total points are **never stored** as a number. They are computed live from the `checkedBy` array across all posts (unwind + group), so every recorded pass counts.
 
+## 🌐 Live
+
+| App | URL |
+| --- | --- |
+| API (Render, Express + Socket.IO) | https://teamrank.onrender.com |
+| Health check | https://teamrank.onrender.com/api/health |
+| Frontend (Vercel, Next.js) | https://team-rank-pearl.vercel.app |
+
 ## 🔄 Point rules (current)
 
 - The **Pass** button in the admin panel always **adds 1** to a user's count — clicking again adds another (no toggle-off).
@@ -146,9 +154,9 @@ Quick summary:
    Build: `pnpm install --frozen-lockfile --prod=false && pnpm build`
    · Start: `node dist/src/server.js` · Health check: `/api/health`.
 3. Vercel → frontend project with **Root Directory = `client`**, set
-   `NEXT_PUBLIC_API_URL=https://<your-api>.onrender.com`, then deploy.
+   `NEXT_PUBLIC_API_URL=https://teamrank.onrender.com`, then deploy.
 4. Put the Vercel client URL into Render's `CLIENT_URL` and redeploy the API.
-5. Verify `https://<your-api>.onrender.com/api/health` → `200`.
+5. Verify `https://teamrank.onrender.com/api/health` → `200`.
 
 > Render-এ API চলার কারণে Socket.IO রিয়েল-টাইম নোটিফিকেশন কাজ করে।
 

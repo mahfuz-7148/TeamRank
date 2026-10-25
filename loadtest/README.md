@@ -17,7 +17,7 @@ node loadtest/run.mjs
 
 ```bash
 # ডিপ্লয় করা API
-BASE_URL=https://<your-api>.onrender.com \
+BASE_URL=https://teamrank.onrender.com \
 EXAM_ID=6add051a2ec99067db70a9ba \
 CONCURRENCY=50 DURATION=30 \
 node loadtest/run.mjs
@@ -56,7 +56,7 @@ curl -s -X DELETE "$BASE_URL/api/users/$UID" -H "x-admin-key: $ADMIN_KEY"
 প্রতি worker একটানা hammer না করে ১ সেকেন্ড থামবে — বাস্তব ইউজারের মতো:
 
 ```bash
-BASE_URL=https://<your-api>.onrender.com \
+BASE_URL=https://teamrank.onrender.com \
 EXAM_ID=<exam-id> \
 CONCURRENCY=100 DURATION=60 THINK_MS=1000 \
 node loadtest/run.mjs

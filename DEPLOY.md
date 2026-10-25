@@ -71,7 +71,7 @@ Render ও Vercel-এর dashboard-এ সেট করবেন।
 ### ডিপ্লয় verification
 
 ```
-https://<your-api>.onrender.com/api/health
+https://teamrank.onrender.com/api/health
 → {"success":true,"data":{"status":"ok"}}
 ```
 
@@ -87,7 +87,7 @@ TypeScript কম্পাইল করে `dist/src/server.js` তৈরি ক
 ## ৩. Frontend (Vercel) নতুন API-তে পয়েন্ট করুন
 
 1. Vercel → **frontend** প্রজেক্ট (`team-rank-pearl`) → **Settings → Environment Variables**
-2. `NEXT_PUBLIC_API_URL` = `https://<your-api>.onrender.com`
+2. `NEXT_PUBLIC_API_URL` = `https://teamrank.onrender.com`
 3. (ঐচ্ছিক) `NEXT_PUBLIC_SOCKET_URL` — শুধু socket আলাদা হোস্টে হলে
 4. **Deployments → Redeploy** (⚠️ `NEXT_PUBLIC_*` build-time-এ embed হয়)
 
@@ -141,7 +141,7 @@ Socket সংযোগ চেক করতে DevTools → Network → `WS` ফ�
 
 ## ৬. ডিপ্লয়ের পর চেকলিস্ট
 
-- [ ] `GET https://<api>.onrender.com/api/health` → `200 OK`
+- [ ] `GET https://teamrank.onrender.com/api/health` → `200 OK`
 - [ ] Vercel frontend `NEXT_PUBLIC_API_URL` = Render URL
 - [ ] হোম পেজে ইউজারনেম দিয়ে প্রবেশ
 - [ ] `/admin` → admin key দিয়ে পরীক্ষা তৈরি
