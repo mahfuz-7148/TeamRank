@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { Hind_Siliguri } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 
 const hindSiliguri = Hind_Siliguri({
@@ -62,6 +63,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             TeamRank — টিম পরীক্ষা ও লিডারবোর্ড
           </footer>
         </div>
+        <Analytics />
       </body>
     </html>
   );

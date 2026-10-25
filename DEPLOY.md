@@ -79,6 +79,18 @@ CLI-তে environment variables যোগ করুন: `vercel env add MONGO_U
 
 > `NEXT_PUBLIC_*` ভ্যালু **build time**-এ embed হয়। ভ্যালু বদলালে অবশ্যই **Redeploy** করতে হবে।
 
+### 📊 ভিজিট কতবার হয়েছে দেখবেন কোথায়
+
+Vercel **Web Analytics** দিয়ে page view / unique visitor দেখা যায় (Hobby: মাসে ৫০,০০০ event ফ্রি)।
+
+1. কোডে `@vercel/analytics` আগেই যোগ করা আছে (`client/src/app/layout.tsx`-এ `<Analytics />`)
+2. Vercel Dashboard → আপনার **frontend** প্রজেক্ট (`team-rank-pearl`) → বাম সাইডবার **Analytics** → **Enable**
+3. নতুন কোড **Deploy** করুন (enable করার পর routes তৈরি হয়)
+4. কিছু ভিজিটের পর **Analytics** ট্যাবে দেখবেন: **Visitors**, **Page Views**, কোন পেজ বেশি দেখা হচ্ছে, country/device/referrer
+5. শুধু **API request** সংখ্যা দেখতে: একই প্রজেক্টের **Observability → Requests / Functions** (এটা ভিজিট নয়, backend call)
+
+> Analytics enable করার আগের ভিজিটগুলো দেখা যাবে না — শুধু enable + deploy-এর পরের ডেটা জমা হবে।
+
 5. **Deploy** চাপুন
 
 ---
