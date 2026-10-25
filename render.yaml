@@ -2,7 +2,7 @@
 # The Next.js frontend is deployed separately (e.g. Vercel).
 services:
   - type: web
-    name: teamrank-api
+    name: teamrank
     runtime: node
     plan: free
     region: singapore
