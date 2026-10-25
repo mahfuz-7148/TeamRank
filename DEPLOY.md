@@ -53,7 +53,7 @@ git push -u origin main
 
 ```bash
 cd server
-npm i -g vercel
+pnpm add -g vercel
 vercel            # প্রথমবার project link করবে
 vercel --prod
 ```
@@ -61,6 +61,8 @@ vercel --prod
 CLI-তে environment variables যোগ করুন: `vercel env add MONGO_URI production` ইত্যাদি।
 
 **কীভাবে কাজ করে:** `server/vercel.json` সব রিকোয়েস্ট `api/index.ts`-এ পাঠায়; `createApp()` Express app হ্যান্ডেল করে। `src/config/db.ts`-এ global connection cache আছে, তাই warm container-এ বারবার DB connect হয় না।
+
+> **pnpm:** `server/` ও `client/` দুটোতেই `pnpm-lock.yaml` আছে, তাই Vercel স্বয়ংক্রিয়ভাবে **pnpm** দিয়ে install করবে। `package-lock.json` কখনো কমিট করবেন না।
 
 ---
 
@@ -111,10 +113,10 @@ CORS মিলছে না হলে ব্রাউজারে এমন এ�
 
 ```bash
 # Terminal 1
-cd server && npm install && npm run dev     # http://localhost:5000
+cd server && pnpm install && pnpm dev     # http://localhost:5000
 
 # Terminal 2
-cd client && npm install && npm run dev     # http://localhost:3000
+cd client && pnpm install && pnpm dev     # http://localhost:3000
 ```
 
 `server/.env` এবং `client/.env.local` আগের মতোই ব্যবহার করুন।

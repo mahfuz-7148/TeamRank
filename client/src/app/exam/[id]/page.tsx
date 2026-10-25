@@ -10,6 +10,7 @@ import { getSavedUser } from "@/lib/user";
 import type { ExamDetail } from "@/types";
 
 const REFRESH_INTERVAL_MS = 5000;
+const RESPOND_COOLDOWN_SECONDS = 5;
 
 interface SavedUser {
   id: string;
@@ -29,10 +30,20 @@ export default function ExamDetailPage() {
   const [responding, setResponding] = useState(false);
   const [respondError, setRespondError] = useState<string | null>(null);
   const [respondMessage, setRespondMessage] = useState<string | null>(null);
+  const [cooldown, setCooldown] = useState(0);
 
   useEffect(() => {
     setMe(getSavedUser());
   }, []);
+
+  // 5-second cooldown between answer chances
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const timer = setTimeout(() => {
+      setCooldown((value) => Math.max(0, value - 1));
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [cooldown]);
 
   const loadExam = useCallback(async () => {
     if (!id) return;
@@ -61,9 +72,10 @@ export default function ExamDetailPage() {
 
   // Respond: adds my name to the "wants to answer" list only.
   // This never adds a pass or a point — the admin awards those separately.
+  // After each press there is a 5-second cooldown, then the member can
+  // press again (as many times as needed) for the next answer chance.
   async function handleRespond() {
-    if (!me || !exam || responding) return;
-    if (exam.responders.some((u) => u.id === me.id)) return;
+    if (!me || !exam || responding || cooldown > 0) return;
     setResponding(true);
     setRespondError(null);
     setRespondMessage(null);
@@ -81,8 +93,9 @@ export default function ExamDetailPage() {
           ],
         };
       });
+      setCooldown(RESPOND_COOLDOWN_SECONDS);
       setRespondMessage(
-        "✅ আপনার নাম তালিকায় যোগ হয়েছে — এখন উত্তর দেওয়ার সুযোগ পাবেন।"
+        "✅ আপনার নাম তালিকায় যোগ হয়েছে — ৫ সেকেন্ড পর আবার উত্তর দিতে পারবেন।"
       );
       // Confirm with server data
       void loadExam();
@@ -210,18 +223,21 @@ export default function ExamDetailPage() {
                   {me.username}, এই প্রশ্নের উত্তর দিতে চান?
                 </p>
                 <p className="mt-0.5 text-xs text-slate-500">
-                  বাটনে চাপলে শুধু আপনার নাম তালিকায় উঠবে — কোনো পাস বা পয়েন্ট
-                  যোগ হবে না।
+                  {hasResponded
+                    ? "আপনার নাম তালিকায় আছে — ৫ সেকেন্ড পর পর আবার চাপ দিতে পারবেন, যতবার দরকার।"
+                    : "বাটনে চাপলে শুধু আপনার নাম তালিকায় উঠবে — কোনো পাস বা পয়েন্ট যোগ হবে না।"}
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => void handleRespond()}
-                disabled={responding || hasResponded}
-                className={`shrink-0 rounded-xl px-6 py-3 text-sm font-bold text-white shadow-lg transition-all duration-200 active:scale-95 disabled:cursor-not-allowed disabled:opacity-80 ${
-                  hasResponded
-                    ? "bg-gradient-to-r from-emerald-500 to-teal-600 shadow-emerald-200"
-                    : "bg-gradient-to-r from-indigo-600 to-violet-600 shadow-indigo-200 hover:shadow-xl hover:shadow-indigo-300"
+                disabled={responding || cooldown > 0}
+                className={`shrink-0 rounded-xl px-6 py-3 text-sm font-bold text-white shadow-lg transition-all duration-200 active:scale-95 disabled:cursor-not-allowed disabled:opacity-90 ${
+                  cooldown > 0
+                    ? "bg-gradient-to-r from-amber-500 to-orange-500 shadow-amber-200"
+                    : hasResponded
+                      ? "bg-gradient-to-r from-emerald-500 to-teal-600 shadow-emerald-200 hover:shadow-xl hover:shadow-emerald-300"
+                      : "bg-gradient-to-r from-indigo-600 to-violet-600 shadow-indigo-200 hover:shadow-xl hover:shadow-indigo-300"
                 }`}
               >
                 {responding ? (
@@ -229,13 +245,30 @@ export default function ExamDetailPage() {
                     <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
                     যোগ হচ্ছে...
                   </span>
+                ) : cooldown > 0 ? (
+                  `⏳ ${cooldown} সেকেন্ড পর আবার চাপুন`
                 ) : hasResponded ? (
-                  "✅ আপনার নাম তালিকায় আছে"
+                  "🙋 আবার উত্তর দিতে চাই"
                 ) : (
                   "🙋 আমি উত্তর দিতে চাই"
                 )}
               </button>
             </div>
+            {cooldown > 0 && (
+              <div className="flex items-center gap-2.5">
+                <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-amber-100">
+                  <span
+                    className="block h-full rounded-full bg-gradient-to-r from-amber-400 to-orange-500 transition-all duration-1000 ease-linear"
+                    style={{
+                      width: `${(cooldown / RESPOND_COOLDOWN_SECONDS) * 100}%`,
+                    }}
+                  />
+                </span>
+                <span className="shrink-0 text-xs font-semibold text-amber-600">
+                  {cooldown} সেকেন্ড বাকি
+                </span>
+              </div>
+            )}
             {respondMessage && (
               <p className="animate-scale-in rounded-xl bg-emerald-50 px-4 py-2.5 text-sm font-medium text-emerald-700 ring-1 ring-emerald-100">
                 {respondMessage}

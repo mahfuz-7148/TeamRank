@@ -70,15 +70,18 @@ TeamRank/
 ### 1. Prerequisites
 
 - Node.js 18+
+- **pnpm 12+** (`npm install -g pnpm` only if pnpm is missing)
 - MongoDB running locally (or a MongoDB Atlas URI)
+
+> This repo uses **pnpm only**. Use `pnpm install` / `pnpm run <script>` — do not generate `package-lock.json`.
 
 ### 2. Server
 
 ```bash
 cd server
-npm install
+pnpm install
 cp .env.example .env   # then edit .env
-npm run dev            # http://localhost:5000
+pnpm dev               # http://localhost:5000
 ```
 
 **`server/.env` example:**
@@ -97,9 +100,9 @@ CLIENT_URL=http://localhost:3000
 
 ```bash
 cd client
-npm install
+pnpm install
 cp .env.local.example .env.local   # then edit if needed
-npm run dev                        # http://localhost:3000
+pnpm dev                           # http://localhost:3000
 ```
 
 **`client/.env.local` example:**
@@ -112,10 +115,10 @@ NEXT_PUBLIC_API_URL=http://localhost:5000
 
 ```bash
 # server
-cd server && npm run build && npm start
+cd server && pnpm build && pnpm start
 
 # client
-cd client && npm run build && npm start
+cd client && pnpm build && pnpm start
 ```
 
 ### ☁️ Deploy to Vercel
