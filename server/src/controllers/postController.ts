@@ -151,6 +151,68 @@ export async function deletePost(
   }
 }
 
+// POST /api/posts/:id/pass — a user marks their own pass (public, once per exam)
+// Idempotent: pressing again never adds a second point.
+export async function selfPass(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const body = getValidatedBody<AwardInput>(res);
+
+    const user = await User.findById(body.userId);
+    if (!user) {
+      throw new HttpError(StatusCodes.NOT_FOUND, "ইউজার খুঁজে পাওয়া যায়নি");
+    }
+
+    const post = await Post.findById(req.params.id);
+    if (!post) {
+      throw new HttpError(StatusCodes.NOT_FOUND, "পরীক্ষাটি খুঁজে পাওয়া যায়নি");
+    }
+
+    const alreadyPassed = post.checkedBy.some(
+      (id) => id.toString() === user._id.toString()
+    );
+
+    let updated = post;
+    if (!alreadyPassed) {
+      const result = await Post.findByIdAndUpdate(
+        post._id,
+        { $addToSet: { checkedBy: user._id } },
+        { new: true }
+      );
+      if (!result) {
+        throw new HttpError(
+          StatusCodes.INTERNAL_SERVER_ERROR,
+          "পাস রেকর্ড করা যায়নি"
+        );
+      }
+      updated = result;
+    }
+
+    const userPasses = updated.checkedBy.filter(
+      (id) => id.toString() === user._id.toString()
+    ).length;
+
+    res.status(StatusCodes.OK).json({
+      success: true,
+      data: {
+        id: updated._id.toString(),
+        passed: true,
+        alreadyPassed,
+        userPasses,
+        passedCount: updated.checkedBy.length,
+        uniqueUsers: new Set(
+          updated.checkedBy.map((id) => id.toString())
+        ).size,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
 // POST /api/posts/:id/award — add one pass for the user ($push, duplicates allowed)
 // Each click = +1 pass. Points are computed from the array size, never stored.
 export async function awardPoint(

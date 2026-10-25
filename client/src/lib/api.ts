@@ -106,6 +106,25 @@ export function getExam(id: string): Promise<ExamDetail> {
   return request<ExamDetail>(`/api/posts/${id}`);
 }
 
+export interface SelfPassResult {
+  id: string;
+  passed: boolean;
+  alreadyPassed: boolean;
+  userPasses: number;
+  passedCount: number;
+  uniqueUsers: number;
+}
+
+export function selfPass(
+  examId: string,
+  userId: string
+): Promise<SelfPassResult> {
+  return request<SelfPassResult>(`/api/posts/${examId}/pass`, {
+    method: "POST",
+    body: { userId },
+  });
+}
+
 export function createExam(
   adminKey: string,
   title: string,

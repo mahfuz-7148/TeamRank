@@ -4,10 +4,16 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import PassedList from "@/components/PassedList";
-import { ApiError, getExam } from "@/lib/api";
+import { ApiError, getExam, selfPass } from "@/lib/api";
+import { getSavedUser } from "@/lib/user";
 import type { ExamDetail } from "@/types";
 
 const REFRESH_INTERVAL_MS = 5000;
+
+interface SavedUser {
+  id: string;
+  username: string;
+}
 
 export default function ExamDetailPage() {
   const params = useParams<{ id: string }>();
@@ -17,6 +23,14 @@ export default function ExamDetailPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const [me, setMe] = useState<SavedUser | null>(null);
+  const [passing, setPassing] = useState(false);
+  const [passError, setPassError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setMe(getSavedUser());
+  }, []);
 
   const loadExam = useCallback(async () => {
     if (!id) return;
@@ -42,6 +56,42 @@ export default function ExamDetailPage() {
     }, REFRESH_INTERVAL_MS);
     return () => clearInterval(timer);
   }, [loadExam]);
+
+  // Self-pass: mark me as passed, then refresh so my name appears immediately
+  async function handleSelfPass() {
+    if (!me || !exam || passing) return;
+    setPassing(true);
+    setPassError(null);
+    try {
+      const result = await selfPass(exam.id, me.id);
+      // Optimistic update for instant feedback
+      setExam((prev) => {
+        if (!prev) return prev;
+        const already = prev.checkedBy.some((u) => u.id === me.id);
+        const checkedBy = already
+          ? prev.checkedBy.map((u) =>
+              u.id === me.id ? { ...u, passes: result.userPasses } : u
+            )
+          : [
+              ...prev.checkedBy,
+              { id: me.id, username: me.username, passes: result.userPasses },
+            ];
+        return {
+          ...prev,
+          checkedBy,
+          passedCount: result.passedCount,
+          uniqueUsers: result.uniqueUsers,
+        };
+      });
+      // Confirm with server data
+      void loadExam();    } catch (err) {
+      setPassError(
+        err instanceof ApiError ? err.message : "পাস রেকর্ড করা যায়নি"
+      );
+    } finally {
+      setPassing(false);
+    }
+  }
 
   if (!id) {
     return (
@@ -100,6 +150,10 @@ export default function ExamDetailPage() {
     year: "numeric",
   });
 
+  const alreadyPassed = me
+    ? exam.checkedBy.some((u) => u.id === me.id)
+    : false;
+
   return (
     <article className="flex flex-col gap-7">
       <header className="relative animate-fade-in-up overflow-hidden rounded-2xl border border-slate-200/80 bg-white/80 p-6 shadow-sm backdrop-blur">
@@ -131,6 +185,70 @@ export default function ExamDetailPage() {
           </p>
         )}
       </header>
+
+      {/* Self pass — user marks their own success */}
+      <section className="animate-fade-in-up rounded-2xl border border-slate-200/80 bg-white/80 p-5 shadow-sm backdrop-blur">
+        {!me ? (
+          <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-slate-600">
+              এই পরীক্ষা পাস করলে আপনার নাম তালিকায় যোগ করতে প্রথমে নাম দিন।
+            </p>
+            <Link
+              href="/"
+              className="shrink-0 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 px-4 py-2 text-sm font-semibold text-white shadow-md shadow-indigo-200 transition-all duration-200 hover:shadow-lg active:scale-95"
+            >
+              নাম দিন →
+            </Link>
+          </div>
+        ) : alreadyPassed ? (
+          <div className="flex items-center gap-3">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-400 to-teal-500 text-xl text-white shadow-md shadow-emerald-200">
+              ✅
+            </span>
+            <div>
+              <p className="font-semibold text-emerald-700">
+                আপনি এই পরীক্ষায় পাস করেছেন!
+              </p>
+              <p className="text-xs text-slate-500">
+                আপনার নাম নিচের তালিকায় আছে — মোট {exam.passedCount}টি পাস।
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="font-semibold text-slate-800">
+                  {me.username}, পরীক্ষাটি কি পারছেন?
+                </p>
+                <p className="mt-0.5 text-xs text-slate-500">
+                  পাস করলে নিচের বাটনে চাপুন — সাথে সাথে আপনার নাম তালিকায় উঠবে।
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => void handleSelfPass()}
+                disabled={passing}
+                className="shrink-0 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-emerald-200 transition-all duration-200 hover:shadow-xl hover:shadow-emerald-300 active:scale-95 disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {passing ? (
+                  <span className="flex items-center gap-2">
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                    যোগ হচ্ছে...
+                  </span>
+                ) : (
+                  "✅ আমি পাস করেছি"
+                )}
+              </button>
+            </div>
+            {passError && (
+              <p className="animate-scale-in rounded-xl bg-red-50 px-4 py-2.5 text-sm text-red-600 ring-1 ring-red-100">
+                ⚠️ {passError}
+              </p>
+            )}
+          </div>
+        )}
+      </section>
 
       <section>
         <div className="mb-3.5 flex items-center justify-between">

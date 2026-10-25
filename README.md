@@ -6,8 +6,10 @@ A full-stack **team exam, points and leaderboard system**. Admins create exams (
 
 ## 🔄 Point rules (current)
 
-- The **Pass** button always **adds 1** to a user's count — clicking again adds another (no toggle-off).
+- The **Pass** button in the admin panel always **adds 1** to a user's count — clicking again adds another (no toggle-off).
+- A member can also mark their **own pass** from the exam page ("আমি পাস করেছি"). This is **idempotent**: once per exam per user, so it cannot be spammed.
 - Exam detail page shows each user's pass count (e.g. "✅ ৩ বার").
+- Exam cards show both **total passes** and **unique users**.
 - Leaderboard points = total number of passes recorded for the user across all exams.
 
 ## Tech stack
@@ -141,6 +143,7 @@ Quick summary:
 | POST   | `/api/posts`          | admin only  | Create an exam                                 |
 | GET    | `/api/posts`          | —           | All exams, newest first                        |
 | GET    | `/api/posts/:id`      | —           | One exam, `checkedBy` populated (username only)|
+| POST   | `/api/posts/:id/pass` | —           | User marks own pass (idempotent, once per exam)|
 | POST   | `/api/posts/:id/award`| admin only  | Add one pass (`$push`; repeated calls add up)   |
 | GET    | `/api/leaderboard`    | —           | Passes counted per user (unwind + group), ranked |
 
@@ -150,7 +153,7 @@ Admin routes require the header `x-admin-key: <ADMIN_KEY>`. Invalid ObjectIds re
 
 1. **Join** — a team member opens the app, enters a username once. The user is created in MongoDB and `{ id, username }` is saved in `localStorage`, so they're never asked again.
 2. **Exams** — the home page lists all exams (newest first) with a pass count, plus the live leaderboard.
-3. **Exam detail** — clicking an exam shows its description and everyone who passed it. The list auto-refreshes every 5 seconds.
+3. **Exam detail** — clicking an exam shows its description and everyone who passed it. The list auto-refreshes every 5 seconds. A logged-in member also sees an **"আমি পাস করেছি"** button: one click records their pass and their name appears in the list instantly (idempotent — pressing again does not add extra points).
 4. **Admin creates exams** — on `/admin`, the admin enters their key (kept **only** in component state, never persisted), a title and optional content.
 5. **Admin awards points** — on `/award`, the admin picks an exam and clicks **Pass** per user. Every click records one more pass (`$push`), so a student who answered 3 questions correctly can be given 3 points. Each user's running count appears as a badge.
 6. **Leaderboard** — points are computed live by unwinding `checkedBy` across posts, grouping per user and counting entries, then sorted by points (desc) and username (asc). Nothing is stored as a total.

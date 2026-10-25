@@ -32,4 +32,7 @@ export const awardSchema = z.object({
     .regex(/^[a-fA-F0-9]{24}$/, "userId একটি সঠিক ObjectId হতে হবে"),
 });
 
+// Public self-pass: a team member marks their own pass on an exam
+export const selfPassSchema = awardSchema;
+
 export type AwardInput = z.infer<typeof awardSchema>;
