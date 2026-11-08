@@ -35,7 +35,7 @@ Render ও Vercel-এর dashboard-এ সেট করবেন।
 
 1. [dashboard.render.com](https://dashboard.render.com) → **New → Blueprint**
 2. GitHub repo সিলেক্ট করুন → Render `render.yaml` পড়ে সার্ভিস তৈরি করবে
-3. `MONGO_URI`, `ADMIN_KEY`, `CLIENT_URL` — তিনটার মান দিন
+3. `MONGO_URI`, `ADMIN_KEY`, `JWT_SECRET`, `CLIENT_URL` — চারটার মান দিন
 4. **Apply / Deploy** চাপুন
 
 ### উপায় B — ম্যানুয়াল Web Service
@@ -63,10 +63,15 @@ Render ও Vercel-এর dashboard-এ সেট করবেন।
 | --- | --- | --- |
 | `MONGO_URI` | `mongodb+srv://user:pass@cluster.mongodb.net/teamrank` | Atlas connection string |
 | `ADMIN_KEY` | শক্তিশালী গোপন কী | admin routes-এর জন্য |
+| `JWT_SECRET` | লম্বা random string (≥১৬ অক্ষর) | লগইন কুকি সাইন করে; `openssl rand -hex 32` |
 | `CLIENT_URL` | `https://team-rank-pearl.vercel.app` | frontend origin (কমা দিয়ে একাধিক) |
 | `NODE_VERSION` | `22` | Blueprint-এ সেট করা আছে |
 
 > `PORT` Render নিজেই দেয় — ম্যানুয়ালি দিতে হবে না।
+
+> 🔐 `JWT_SECRET` না দিলে সার্ভার `ADMIN_KEY` দিয়ে কুকি সাইন করবে (ওয়ার্নিং লগ
+> দিয়ে), তাই পুরোনো ডিপ্লয় ভাঙবে না। তবু আলাদা `JWT_SECRET` সেট করাই সঠিক।
+> মান বদলালে সবাইকে আবার লগইন করতে হবে।
 
 ### ডিপ্লয় verification
 
@@ -128,7 +133,27 @@ CORS মিলছে না হলে ব্রাউজারে দেখব�
 
 ---
 
-## ৫. রিয়েল-টাইম নোটিফিকেশন টেস্ট
+## ৫. অ্যাকাউন্ট ও কুকি টেস্ট
+
+1. `https://team-rank-pearl.vercel.app/signup` → ইউজারনেম + পাসওয়ার্ড (৮+ অক্ষর)
+2. DevTools → **Application → Cookies → `teamrank.onrender.com`**
+   - `teamrank_token` আছে
+   - **HttpOnly** ✅ (JavaScript পড়তে পারবে না)
+   - **Secure** ✅, **SameSite=None** ✅ (production-এ)
+3. লগআউট → কুকি মুছে যায় → `/login`-এ redirect
+4. আবার লগইন → হোম পেজ ও লিডারবোর্ড লোড হয়
+5. লগইন ছাড়া `/` বা `/exam/...` খুললে `/login`-এ redirect হয়
+
+> ⚠️ Vercel frontend আর Render API আলাদা সাইট, তাই এটি **third-party cookie**।
+> Chrome/Firefox সাধারণত কাজ করে; Safari-তে third-party cookie ব্লক থাকলে লগইন
+> থাকবে না। তখন ব্রাউজার সেটিংয়ে `teamrank.onrender.com` allow করুন।
+>
+> ⚠️ কুকি সেট হতে **HTTPS** লাগে (`Secure`), তাই `http://teamrank.onrender.com`
+> নয় — সবসময় `https://` ব্যবহার করুন।
+
+---
+
+## ৬. রিয়েল-টাইম নোটিফিকেশন টেস্ট
 
 1. একই এক্সাম পেজ দুটি ব্রাউজার/ট্যাবে খুলুন
 2. একটাতে **"🙋 আমি উত্তর দিতে চাই"** চাপুন
@@ -139,11 +164,14 @@ Socket সংযোগ চেক করতে DevTools → Network → `WS` ফ�
 
 ---
 
-## ৬. ডিপ্লয়ের পর চেকলিস্ট
+## ৭. ডিপ্লয়ের পর চেকলিস্ট
 
 - [ ] `GET https://teamrank.onrender.com/api/health` → `200 OK`
 - [ ] Vercel frontend `NEXT_PUBLIC_API_URL` = Render URL
-- [ ] হোম পেজে ইউজারনেম দিয়ে প্রবেশ
+- [ ] Render-এ `JWT_SECRET` সেট করা
+- [ ] `/signup` দিয়ে নতুন অ্যাকাউন্ট তৈরি
+- [ ] লগইন/লগআউট কাজ করছে, কুকি HttpOnly
+- [ ] লগইন ছাড়া হোম পেজ `/login`-এ redirect
 - [ ] `/admin` → admin key দিয়ে পরীক্ষা তৈরি
 - [ ] `/award` → Pass ক্লিক → পয়েন্ট +১
 - [ ] লিডারবোর্ডে পয়েন্ট দেখা যাচ্ছে
@@ -163,8 +191,10 @@ cd server && pnpm install && pnpm dev     # http://localhost:5000
 cd client && pnpm install && pnpm dev     # http://localhost:3000
 ```
 
-`server/.env` (MONGO_URI, ADMIN_KEY, CLIENT_URL=http://localhost:3000,http://localhost:3005)
-এবং `client/.env.local` (NEXT_PUBLIC_API_URL=http://localhost:5000) ব্যবহার করুন।
+`server/.env` (`MONGO_URI`, `ADMIN_KEY`, `JWT_SECRET`, `CLIENT_URL=http://localhost:3000,http://localhost:3005`)
+এবং `client/.env.local` (`NEXT_PUBLIC_API_URL=http://localhost:5000`) ব্যবহার করুন।
+
+লোকালে কুকি `SameSite=Lax`, `Secure=false` — তাই `http://localhost`-এ লগইন কাজ করে।
 
 ---
 
@@ -178,6 +208,10 @@ cd client && pnpm install && pnpm dev     # http://localhost:3000
 | `Database connection failed` | Atlas IP allowlist-এ `0.0.0.0/0`; `MONGO_URI` সঠিক; password special character হলে URL-encode |
 | CORS error | Render `CLIENT_URL`-এ frontend URL দিন → redeploy |
 | `401 Invalid admin key` | Render env-এর `ADMIN_KEY` আর UI-তে দেওয়া কী এক কি না দেখুন |
+| লগইনের পরও `/login`-এ ফিরে আসে | `CLIENT_URL` exact frontend origin; কুকি ব্লক হচ্ছে কি না দেখুন; Vercel-এ **Redeploy** |
+| `Set-Cookie` দেখা যাচ্ছে না | API অবশ্যই HTTPS; `credentials: "include"` আছে; reverse proxy-তে `Cookie` header drop হচ্ছে না |
+| `401 প্রথমে লগইন করুন` | সেশন কুকি নেই/মেয়াদোত্তীর্ণ — আবার লগইন; `JWT_SECRET` বদলালে সব পুরোনো টোকেন বাতিল হয় |
+| পুরোনো ইউজারনেমে সাইনআপ | আগের (পাসওয়ার্ডহীন) অ্যাকাউন্টে পাসওয়ার্ড সেট হবে, পয়েন্ট থাকবে; পাসওয়ার্ড থাকলে `409` |
 | Client পুরনো API URL-এ যাচ্ছে | `NEXT_PUBLIC_API_URL` বদলে Vercel-এ **Redeploy** |
 | Socket connect হচ্ছে না | `CLIENT_URL` সঠিক কি না; Render logs-এ `[socket]` লাইন দেখুন; free tier ঘুম থেকে জাগতে সময় লাগে |
 | প্রথম রিকোয়েস্ট ৩০–৬০s | Render free tier cold start — স্বাভাবিক; Pro নিলে এড়ানো যায় |

@@ -29,6 +29,7 @@ export function getSocket(): Socket {
     socket = io(SOCKET_URL, {
       transports: ["websocket", "polling"],
       autoConnect: !isVercelServerless,
+      withCredentials: true,
       reconnection: true,
       reconnectionDelay: 800,
       reconnectionDelayMax: 4000,

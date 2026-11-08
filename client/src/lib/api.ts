@@ -51,6 +51,8 @@ async function request<T>(
       headers,
       body: body !== undefined ? JSON.stringify(body) : undefined,
       cache: "no-store",
+      // Send/receive the httpOnly auth cookie on cross-origin requests.
+      credentials: "include",
     });
   } catch {
     throw new ApiError(0, "সার্ভারের সাথে সংযোগ করা যাচ্ছে না");
@@ -68,6 +70,10 @@ async function request<T>(
     const firstField = fieldErrors
       ? Object.values(fieldErrors)[0]?.[0]
       : undefined;
+    // Let the auth provider clear its state when a session expires.
+    if (res.status === 401 && typeof window !== "undefined") {
+      window.dispatchEvent(new Event("teamrank:unauthorized"));
+    }
     throw new ApiError(
       res.status,
       firstField ?? json?.message ?? "অপ্রত্যাশিত সমস্যা হয়েছে"
@@ -77,11 +83,33 @@ async function request<T>(
   return json.data;
 }
 
-// ---- Users ----
+// ---- Auth ----
 
-export function createUser(username: string): Promise<User> {
-  return request<User>("/api/users", { method: "POST", body: { username } });
+export function signup(username: string, password: string): Promise<User> {
+  return request<User>("/api/auth/signup", {
+    method: "POST",
+    body: { username, password },
+  });
 }
+
+export function login(username: string, password: string): Promise<User> {
+  return request<User>("/api/auth/login", {
+    method: "POST",
+    body: { username, password },
+  });
+}
+
+export function logout(): Promise<{ loggedOut: boolean }> {
+  return request<{ loggedOut: boolean }>("/api/auth/logout", {
+    method: "POST",
+  });
+}
+
+export function getMe(): Promise<User> {
+  return request<User>("/api/auth/me");
+}
+
+// ---- Users ----
 
 export function listUsers(): Promise<User[]> {
   return request<User[]>("/api/users");
@@ -113,14 +141,11 @@ export interface RespondResult {
   respondersCount: number;
 }
 
-// Adds the user's name to the "wants to answer" list. No pass, no points.
-export function respondToExam(
-  examId: string,
-  userId: string
-): Promise<RespondResult> {
+// Adds the logged-in user's name to the "wants to answer" list.
+// No pass, no points. The server takes the user from the auth cookie.
+export function respondToExam(examId: string): Promise<RespondResult> {
   return request<RespondResult>(`/api/posts/${examId}/respond`, {
     method: "POST",
-    body: { userId },
   });
 }
 

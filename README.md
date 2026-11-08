@@ -1,8 +1,10 @@
 # 🏆 TeamRank
 
-A full-stack **team exam, points and leaderboard system**. Admins create exams ("Posts"), team members join with a username, and only the admin can mark who passed. Passing an exam gives **1 point**. A live leaderboard ranks every user.
+A full-stack **team exam, points and leaderboard system**. Members sign up / log in, taking exams; admins create exams ("Posts") and only the admin can mark who passed. Passing an exam gives **1 point**. A live leaderboard ranks every user.
 
 > **Design note:** total points are **never stored** as a number. They are computed live from the `checkedBy` array across all posts (unwind + group), so every recorded pass counts.
+
+> **Auth:** passwords are hashed with bcrypt and the session is a **JWT in an httpOnly cookie** (7 days). The cookie is never readable by client JavaScript. Every exam, leaderboard and user API requires a valid session.
 
 ## 🌐 Live
 
@@ -27,6 +29,7 @@ A full-stack **team exam, points and leaderboard system**. Admins create exams (
 | ------- | -------------------------------------------------------------------- |
 | Monorepo | `server/` + `client/`                                               |
 | Backend  | Node.js, Express, Mongoose (MongoDB), TypeScript (strict), zod, tsx |
+| Auth     | bcryptjs password hashing, JWT (httpOnly cookie), CSRF origin guard |
 | Frontend | Next.js (App Router), TypeScript (strict), Tailwind CSS             |
 
 ## Folder structure
@@ -38,17 +41,22 @@ TeamRank/
 │   └── src/
 │       ├── config/db.ts              # MongoDB connection
 │       ├── models/
-│       │   ├── User.ts               # username, createdAt
+│       │   ├── User.ts               # username, passwordHash, createdAt
 │       │   └── Post.ts               # title, content, checkedBy[]
+│       ├── lib/auth.ts               # JWT sign/verify, bcrypt, cookie options
 │       ├── middleware/
+│       │   ├── requireAuth.ts        # reads + verifies the auth cookie
+│       │   ├── originGuard.ts        # CSRF protection for mutations
 │       │   ├── adminOnly.ts          # x-admin-key check
 │       │   ├── validateObjectId.ts   # invalid ObjectId guard + HttpError
 │       │   └── errorHandler.ts       # central error handling
 │       ├── controllers/
+│       │   ├── authController.ts     # signup, login, logout, me
 │       │   ├── userController.ts
 │       │   ├── postController.ts
 │       │   └── leaderboardController.ts
 │       ├── routes/
+│       │   ├── authRoutes.ts
 │       │   ├── userRoutes.ts
 │       │   ├── postRoutes.ts
 │       │   └── leaderboardRoutes.ts
@@ -59,18 +67,24 @@ TeamRank/
 └── client/
     └── src/
         ├── app/
-        │   ├── page.tsx              # username form / exams + leaderboard
-        │   ├── exam/[id]/page.tsx    # exam detail, auto-refresh 5s
+        │   ├── page.tsx              # exams + leaderboard (login required)
+        │   ├── login/page.tsx        # login form
+        │   ├── signup/page.tsx       # signup form
+        │   ├── exam/[id]/page.tsx    # exam detail, 5s silent refresh
         │   ├── admin/page.tsx        # create exam (admin)
         │   └── award/page.tsx        # award/toggle points (admin)
         ├── components/
+        │   ├── AuthProvider.tsx      # session context (me/login/logout)
+        │   ├── AuthGate.tsx          # client-side route protection
+        │   ├── AuthForm.tsx          # shared login/signup form
+        │   ├── SiteHeader.tsx        # nav + user/logout
         │   ├── ExamCard.tsx
         │   ├── Leaderboard.tsx
         │   ├── PassedList.tsx
-        │   └── UsernameForm.tsx
+        │   └── ResponderList.tsx
         ├── lib/
-        │   ├── api.ts                # typed fetch wrapper
-        │   └── user.ts               # localStorage helpers (SSR-safe)
+        │   ├── api.ts                # typed fetch wrapper (credentials: include)
+        │   └── socket.ts             # shared Socket.IO client
         └── types/index.ts            # User, Exam, LeaderboardEntry
 ```
 
@@ -98,12 +112,17 @@ pnpm dev               # http://localhost:5000
 ```env
 MONGO_URI=mongodb://localhost:27017/teamrank
 ADMIN_KEY=change-me-to-a-strong-secret
+JWT_SECRET=change-me-to-a-long-random-string
 PORT=5000
 CLIENT_URL=http://localhost:3000
 ```
 
-- `CLIENT_URL` — the **only** origin allowed by CORS.
+- `CLIENT_URL` — the **only** origin allowed by CORS (and for CSRF checks).
+  Comma-separate multiple origins (e.g. production + localhost).
 - `ADMIN_KEY` — sent by admin pages via the `x-admin-key` header.
+- `JWT_SECRET` — signs the auth cookie; use a long random value
+  (e.g. `openssl rand -hex 32`). If omitted, the server falls back to
+  `ADMIN_KEY` and logs a warning — set it explicitly in production.
 
 ### 3. Client
 
@@ -162,23 +181,30 @@ Quick summary:
 
 ## API
 
-| Method | Route                 | Auth        | Description                                    |
-| ------ | --------------------- | ----------- | ---------------------------------------------- |
-| POST   | `/api/users`          | —           | Create user by username, or return existing    |
-| GET    | `/api/users`          | —           | All users sorted by username                   |
-| POST   | `/api/posts`          | admin only  | Create an exam                                 |
-| GET    | `/api/posts`          | —           | All exams, newest first                        |
-| GET    | `/api/posts/:id`      | —           | One exam, `checkedBy` populated (username only)|
-| POST   | `/api/posts/:id/respond` | —        | User raises hand: name only, **no points** (`$addToSet`) |
-| POST   | `/api/posts/:id/award`| admin only  | Add one pass (`$push`; repeated calls add up)   |
-| GET    | `/api/leaderboard`    | —           | Passes counted per user (unwind + group), ranked |
+| Method | Route                    | Auth              | Description                                    |
+| ------ | ------------------------ | ----------------- | ---------------------------------------------- |
+| POST   | `/api/auth/signup`       | —                 | Create account (or claim a legacy username); sets cookie |
+| POST   | `/api/auth/login`        | —                 | Verify password; sets cookie                   |
+| POST   | `/api/auth/logout`       | —                 | Clears the auth cookie                         |
+| GET    | `/api/auth/me`           | session           | Current logged-in user                         |
+| GET    | `/api/users`             | session           | All users sorted by username                   |
+| DELETE | `/api/users/:id`         | session + admin   | Delete user + their passes                     |
+| POST   | `/api/posts`             | session + admin   | Create an exam                                 |
+| GET    | `/api/posts`             | session           | All exams, newest first                        |
+| GET    | `/api/posts/:id`         | session           | One exam, `checkedBy` populated (username only)|
+| POST   | `/api/posts/:id/respond` | session           | Raise hand: name only, **no points** (`$addToSet`) |
+| POST   | `/api/posts/:id/award`   | session + admin   | Add one pass (`$push`; repeated calls add up)   |
+| GET    | `/api/leaderboard`       | session           | Passes counted per user (unwind + group), ranked |
 
-Admin routes require the header `x-admin-key: <ADMIN_KEY>`. Invalid ObjectIds return `400`; validation errors (zod) return `400` with per-field messages; duplicate usernames are deduplicated (the existing user is returned).
+- **session** = valid `teamrank_token` httpOnly cookie (sent automatically by the browser).
+- **admin** = header `x-admin-key: <ADMIN_KEY>`.
+- Invalid ObjectIds return `400`; validation errors (zod) return `400` with per-field messages.
+- Signup is the only way to create a user. A username that already exists **without** a password (created before auth existed) is claimed by setting a password, so its passes and points stay intact. A username that already has a password returns `409`.
 
 ## Flow
 
-1. **Join** — a team member opens the app, enters a username once. The user is created in MongoDB and `{ id, username }` is saved in `localStorage`, so they're never asked again.
-2. **Exams** — the home page lists all exams (newest first) with a pass count, plus the live leaderboard.
+1. **Sign up / log in** — a member creates an account with a username + password (or logs in). The API sets a 7-day JWT cookie; the client stores no token in `localStorage`.
+2. **Exams** — the home page lists all exams (newest first) with a pass count, plus the live leaderboard. These pages redirect to `/login` without a session.
 3. **Exam detail** — clicking an exam shows its description, who wants to answer, and everyone who passed it. A logged-in member sees an **"🙋 আমি উত্তর দিতে চাই"** button: one click adds only their name to the responder list (no pass, no points). The admin later awards points to whoever answers correctly. Every press is pushed over **Socket.IO** to all open tabs as a notification, and the exam page refreshes instantly (5s polling is the fallback).
 4. **Admin creates exams** — on `/admin`, the admin enters their key (kept **only** in component state, never persisted), a title and optional content.
 5. **Admin awards points** — on `/award`, the admin picks an exam and clicks **Pass** per user. Every click records one more pass (`$push`), so a student who answered 3 questions correctly can be given 3 points. Each user's running count appears as a badge.
@@ -186,6 +212,10 @@ Admin routes require the header `x-admin-key: <ADMIN_KEY>`. Invalid ObjectIds re
 
 ## Security notes
 
-- CORS is restricted to `CLIENT_URL`.
+- Passwords are hashed with **bcrypt** (12 rounds); hashes never leave the server.
+- The JWT lives in an **httpOnly, SameSite=None, Secure** cookie in production (Lax over local HTTP), so client JS and XSS cannot read it.
+- CORS is restricted to `CLIENT_URL` with `credentials: true`.
+- Mutating requests are checked against the `Origin` allowlist (CSRF guard) because the cookie is sent cross-site.
 - Admin key is verified server-side on every admin route; it is never stored in `localStorage` or cookies.
+- Responding to an exam uses the user id from the verified token, never a `userId` supplied by the client.
 - All user text is rendered as normal React text (never `dangerouslySetInnerHTML`).

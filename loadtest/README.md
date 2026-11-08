@@ -3,6 +3,21 @@
 কতজন একসাথে ব্যবহার করতে পারবে তা মাপার জন্য ছোট, ডিপেন্ডেন্সি-ফ্রি লোড টেস্টার।
 Node 18+ আর `fetch` ব্যবহার করে — আলাদা install লাগে না।
 
+## আগে একটি টেস্ট অ্যাকাউন্ট বানান
+
+সব API এখন লগইন-প্রোটেক্টেড, তাই লোড টেস্টার প্রথমে `/api/auth/login` করে কুকি নেয়।
+
+```bash
+BASE_URL=http://localhost:5000       # অথবা https://teamrank.onrender.com
+LT_USER=loadtest_$(date +%s)
+LT_PASS=loadtestpass123
+
+LT_ID=$(curl -s -X POST "$BASE_URL/api/auth/signup" \
+  -H 'Content-Type: application/json' \
+  -d "{\"username\":\"$LT_USER\",\"password\":\"$LT_PASS\"}" \
+  | node -pe 'JSON.parse(require("fs").readFileSync(0)).data.id')
+```
+
 ## দ্রুত রিড-অনলি টেস্ট (নিরাপদ)
 
 `GET /api/posts`, `GET /api/posts/:id`, `GET /api/leaderboard` — কোনো ডেটা বদলায় না।
@@ -10,6 +25,7 @@ Node 18+ আর `fetch` ব্যবহার করে — আলাদা inst
 ```bash
 # লোকাল সার্ভার (pnpm dev চালু থাকতে হবে)
 BASE_URL=http://localhost:5000 \
+AUTH_USERNAME=$LT_USER AUTH_PASSWORD=$LT_PASS \
 EXAM_ID=<exam-id> \
 CONCURRENCY=50 DURATION=30 \
 node loadtest/run.mjs
@@ -18,6 +34,7 @@ node loadtest/run.mjs
 ```bash
 # ডিপ্লয় করা API
 BASE_URL=https://teamrank.onrender.com \
+AUTH_USERNAME=$LT_USER AUTH_PASSWORD=$LT_PASS \
 EXAM_ID=6add051a2ec99067db70a9ba \
 CONCURRENCY=50 DURATION=30 \
 node loadtest/run.mjs
@@ -26,29 +43,32 @@ node loadtest/run.mjs
 ## রাইট টেস্ট (নাম যোগ করা)
 
 ⚠️ লোকাল ও ডিপ্লয়ড সার্ভার **একই Atlas DB** ব্যবহার করে। তাই টেস্টের আগে আলাদা
-ইউজার + এক্সাম বানান, শেষে মুছে ফেলুন। হালকা লোড (১০–২০ worker) দিয়ে শুরু করুন।
+টেস্ট এক্সাম বানান, শেষে মুছে ফেলুন। হালকা লোড (১০–২০ worker) দিয়ে শুরু করুন।
 
 ```bash
 ADMIN_KEY=admin1
 BASE_URL=http://localhost:5000
+JAR=/tmp/teamrank-loadtest.cookies
 
-# ১) টেস্ট ইউজার
-UID=$(curl -s -X POST "$BASE_URL/api/users" -H 'Content-Type: application/json' \
-  -d '{"username":"loadtest_user"}' | node -pe 'JSON.parse(require("fs").readFileSync(0)).data.id')
+# ১) লগইন করে কুকি নিন
+curl -s -c "$JAR" -X POST "$BASE_URL/api/auth/login" \
+  -H 'Content-Type: application/json' \
+  -d "{\"username\":\"$LT_USER\",\"password\":\"$LT_PASS\"}"
 
 # ২) টেস্ট এক্সাম
-EID=$(curl -s -X POST "$BASE_URL/api/posts" -H 'Content-Type: application/json' \
-  -H "x-admin-key: $ADMIN_KEY" \
-  -d '{"title":"loadtest exam","content":"ignore"}' | node -pe 'JSON.parse(require("fs").readFileSync(0)).data.id')
+EID=$(curl -s -b "$JAR" -X POST "$BASE_URL/api/posts" \
+  -H 'Content-Type: application/json' -H "x-admin-key: $ADMIN_KEY" \
+  -d '{"title":"loadtest exam","content":"ignore"}' \
+  | node -pe 'JSON.parse(require("fs").readFileSync(0)).data.id')
 
 # ৩) ২০% রিকোয়েস্ট নাম-রেজিস্ট্রেশন (বাকি ৮০% পড়া)
-BASE_URL=$BASE_URL EXAM_ID=$EID USER_ID=$UID \
+BASE_URL=$BASE_URL AUTH_USERNAME=$LT_USER AUTH_PASSWORD=$LT_PASS EXAM_ID=$EID \
 CONCURRENCY=20 DURATION=30 WRITE_PERCENT=20 \
 node loadtest/run.mjs
 
 # ৪) ক্লিনআপ
-curl -s -X DELETE "$BASE_URL/api/posts/$EID" -H "x-admin-key: $ADMIN_KEY"
-curl -s -X DELETE "$BASE_URL/api/users/$UID" -H "x-admin-key: $ADMIN_KEY"
+curl -s -b "$JAR" -X DELETE "$BASE_URL/api/posts/$EID" -H "x-admin-key: $ADMIN_KEY"
+curl -s -b "$JAR" -X DELETE "$BASE_URL/api/users/$LT_ID" -H "x-admin-key: $ADMIN_KEY"
 ```
 
 ## AS-IF-REAL-USER টেস্ট (think time)
@@ -57,6 +77,7 @@ curl -s -X DELETE "$BASE_URL/api/users/$UID" -H "x-admin-key: $ADMIN_KEY"
 
 ```bash
 BASE_URL=https://teamrank.onrender.com \
+AUTH_USERNAME=$LT_USER AUTH_PASSWORD=$LT_PASS \
 EXAM_ID=<exam-id> \
 CONCURRENCY=100 DURATION=60 THINK_MS=1000 \
 node loadtest/run.mjs

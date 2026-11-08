@@ -3,6 +3,12 @@ import { Schema, model, models, type Model } from "mongoose";
 export interface IUser {
   _id: Schema.Types.ObjectId;
   username: string;
+  /**
+   * bcrypt hash. Optional in the schema because accounts created before
+   * authentication existed have no password yet; those users set one on
+   * their first signup.
+   */
+  passwordHash?: string;
   createdAt: Date;
 }
 
@@ -14,6 +20,10 @@ const userSchema = new Schema<IUser>(
       unique: true,
       trim: true,
       maxlength: 30,
+    },
+    passwordHash: {
+      type: String,
+      select: false,
     },
     createdAt: {
       type: Date,

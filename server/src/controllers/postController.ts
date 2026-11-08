@@ -3,6 +3,7 @@ import { StatusCodes } from "http-status-codes";
 import Post, { type IPost } from "../models/Post";
 import User from "../models/User";
 import { HttpError } from "../middleware/validateObjectId";
+import { getAuthUser } from "../middleware/requireAuth";
 import { emitExamResponse } from "../realtime";
 import { getValidatedBody } from "../types";
 import type { AwardInput, CreatePostInput } from "../types/schemas";
@@ -168,12 +169,8 @@ export async function selfRespond(
   next: NextFunction
 ): Promise<void> {
   try {
-    const body = getValidatedBody<AwardInput>(res);
-
-    const user = await User.findById(body.userId);
-    if (!user) {
-      throw new HttpError(StatusCodes.NOT_FOUND, "ইউজার খুঁজে পাওয়া যায়নি");
-    }
+    // The responder is always the logged-in user — never trust a body userId.
+    const user = getAuthUser(req);
 
     const updated = await Post.findByIdAndUpdate(
       req.params.id,

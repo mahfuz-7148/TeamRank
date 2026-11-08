@@ -4,20 +4,14 @@ import { useCallback, useEffect, useState } from "react";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import ExamCard from "@/components/ExamCard";
 import Leaderboard from "@/components/Leaderboard";
-import UsernameForm from "@/components/UsernameForm";
+import { useAuth } from "@/components/AuthProvider";
 import {
   ApiError,
   deleteExam,
   getLeaderboard,
   listExams,
 } from "@/lib/api";
-import { clearSavedUser, getSavedUser } from "@/lib/user";
 import type { ExamSummary, LeaderboardEntry } from "@/types";
-
-interface SavedUser {
-  id: string;
-  username: string;
-}
 
 function ExamSkeleton() {
   return (
@@ -36,8 +30,7 @@ function ExamSkeleton() {
 }
 
 export default function HomePage() {
-  const [user, setUser] = useState<SavedUser | null>(null);
-  const [ready, setReady] = useState(false);
+  const { user } = useAuth();
 
   const [exams, setExams] = useState<ExamSummary[] | null>(null);
   const [examsError, setExamsError] = useState<string | null>(null);
@@ -53,11 +46,6 @@ export default function HomePage() {
   const [deletingExam, setDeletingExam] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-
-  useEffect(() => {
-    setUser(getSavedUser());
-    setReady(true);
-  }, []);
 
   const loadData = useCallback(async () => {
     try {
@@ -85,15 +73,6 @@ export default function HomePage() {
     if (!user) return;
     void loadData();
   }, [user, loadData]);
-
-  function handleUserSaved(saved: SavedUser) {
-    setUser(saved);
-  }
-
-  function handleLogout() {
-    clearSavedUser();
-    setUser(null);
-  }
 
   function openDeleteDialog(exam: ExamSummary) {
     setExamToDelete(exam);
@@ -136,17 +115,8 @@ export default function HomePage() {
     }
   }
 
-  if (!ready) {
-    return (
-      <div className="flex items-center justify-center py-24">
-        <span className="h-10 w-10 animate-spin rounded-full border-4 border-indigo-100 border-t-indigo-500" />
-      </div>
-    );
-  }
-
-  if (!user) {
-    return <UsernameForm onSaved={handleUserSaved} />;
-  }
+  // AuthGate guarantees a user; this keeps TypeScript happy.
+  if (!user) return null;
 
   return (
     <div className="flex flex-col gap-10">
@@ -160,20 +130,6 @@ export default function HomePage() {
               </span>
             )}
           </h2>
-          <div className="flex items-center gap-2.5 text-sm">
-            <span className="flex items-center gap-1.5 rounded-full bg-white/80 px-3 py-1.5 font-medium text-indigo-700 ring-1 ring-indigo-100">
-              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 text-[10px] font-bold text-white">
-                {user.username.charAt(0).toUpperCase()}
-              </span>
-              {user.username}
-            </span>
-            <button
-              onClick={handleLogout}
-              className="rounded-lg border border-slate-200 bg-white/80 px-2.5 py-1.5 text-xs text-slate-500 transition-all duration-200 hover:border-red-200 hover:bg-red-50 hover:text-red-600 active:scale-95"
-            >
-              বদলান
-            </button>
-          </div>
         </div>
 
         {notice && (

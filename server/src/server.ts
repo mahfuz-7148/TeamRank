@@ -5,8 +5,10 @@ import { createApp } from "./app";
 import { connectDB } from "./config/db";
 import { getAllowedOrigins } from "./config/origins";
 import { setRealtimeServer } from "./realtime";
+import { assertAuthConfigured } from "./lib/auth";
 
 async function main(): Promise<void> {
+  assertAuthConfigured();
   await connectDB();
 
   const port = Number(process.env.PORT) || 5000;

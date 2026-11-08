@@ -5,36 +5,27 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import PassedList from "@/components/PassedList";
 import ResponderList from "@/components/ResponderList";
+import { useAuth } from "@/components/AuthProvider";
 import { ApiError, getExam, respondToExam } from "@/lib/api";
 import { getSocket } from "@/lib/socket";
-import { getSavedUser } from "@/lib/user";
 import type { ExamDetail, ExamResponseEvent } from "@/types";
 
 const REFRESH_INTERVAL_MS = 5000;
 const RESPOND_COOLDOWN_SECONDS = 5;
 
-interface SavedUser {
-  id: string;
-  username: string;
-}
-
 export default function ExamDetailPage() {
   const params = useParams<{ id: string }>();
   const id = typeof params.id === "string" ? params.id : "";
 
+  const { user: me } = useAuth();
   const [exam, setExam] = useState<ExamDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [me, setMe] = useState<SavedUser | null>(null);
   const [responding, setResponding] = useState(false);
   const [respondError, setRespondError] = useState<string | null>(null);
   const [respondMessage, setRespondMessage] = useState<string | null>(null);
   const [cooldown, setCooldown] = useState(0);
-
-  useEffect(() => {
-    setMe(getSavedUser());
-  }, []);
 
   // 5-second cooldown between answer chances
   useEffect(() => {
@@ -92,7 +83,7 @@ export default function ExamDetailPage() {
     setRespondError(null);
     setRespondMessage(null);
     try {
-      await respondToExam(exam.id, me.id);
+      await respondToExam(exam.id);
       // Optimistic update for instant feedback
       setExam((prev) => {
         if (!prev) return prev;
@@ -218,13 +209,13 @@ export default function ExamDetailPage() {
         {!me ? (
           <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm text-slate-600">
-              এই প্রশ্নের উত্তর দিতে চাইলে প্রথমে আপনার নাম দিন।
+              এই প্রশ্নের উত্তর দিতে চাইলে প্রথমে লগইন করুন।
             </p>
             <Link
-              href="/"
+              href="/login"
               className="shrink-0 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 px-4 py-2 text-sm font-semibold text-white shadow-md shadow-indigo-200 transition-all duration-200 hover:shadow-lg active:scale-95"
             >
-              নাম দিন →
+              লগইন করুন →
             </Link>
           </div>
         ) : (

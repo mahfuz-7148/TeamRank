@@ -6,3 +6,7 @@ export function getAllowedOrigins(): string[] {
     .map((origin) => origin.trim())
     .filter(Boolean);
 }
+
+export function isAllowedOrigin(origin: string): boolean {
+  return getAllowedOrigins().includes(origin);
+}

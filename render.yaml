@@ -17,6 +17,8 @@ services:
         sync: false
       - key: ADMIN_KEY
         sync: false
+      - key: JWT_SECRET
+        sync: false
       # Comma-separated frontend origins, e.g. https://team-rank-pearl.vercel.app
       - key: CLIENT_URL
         sync: false
